@@ -1,0 +1,56 @@
+📋 TASK: Enhance Admin Articles List Page
+
+🎯 GOAL:
+Improve the admin articles list page to show more useful info at a glance and remove the redundant "publishedAt" column.
+
+📍 LOCATION:
+- File: `src/app/admin/articles/page.tsx`
+- Route: `/admin/articles`
+
+🎨 REQUIRED CHANGES:
+
+1️⃣ AI BADGE for AI-generated images
+   - For each article row, check if `featuredImageUrl` indicates an AI-generated image:
+     - URL contains "ai-generated" (Cloudinary folder)
+     - OR URL starts with "data:" (base64 fallback)
+   - If yes, show a small Brain icon (lucide-react `Brain` or `Sparkles`) next to the article title
+   - Style: small badge with burgundy color, tooltip "صورة مولدة بالذكاء الاصطناعي"
+   - Position: inline with the title (left side after the title text)
+
+2️⃣ AUTHOR + DATETIME below title
+   - Below each article title, show a small meta line containing:
+     • Author name (`authorName` or `author.fullName`) — prefix with "بقلم"
+     • Gregorian date (DD/MM/YYYY) using lib/format.ts `fDate()` 
+     • Time (HH:MM in 24h format) using lib/format.ts `fDateTime()` or similar
+   - Format example: "بقلم أحمد العمري · 02/05/2026 · 14:32"
+   - Style: small font (text-[11px]), muted color (text-ink-soft), gap between items with bullet separators (·)
+   - Use latin numerals (already standard in fDate)
+
+3️⃣ REMOVE the "publishedAt" / "تاريخ النشر" column
+   - Find and remove the table column that shows published date
+   - The new author+date line under title replaces this info
+   - Adjust other column widths to fill the space gracefully
+
+✅ ACCEPTANCE CRITERIA:
+- [ ] Brain/Sparkles icon visible only on articles with AI images
+- [ ] Author name + Gregorian date + time appear under every article title
+- [ ] "تاريخ النشر" column completely removed from header and rows
+- [ ] Layout still looks clean and aligned on all screen sizes
+- [ ] No TypeScript errors (`npx tsc --noEmit`)
+- [ ] Existing filters/search still work
+
+⚠️ CONSTRAINTS:
+- Use Tajawal font (already loaded)
+- Stick to the existing design system: burgundy + rose-cream + ink colors
+- Use existing helpers from `@/lib/format` (fDate, fDateTime, fNum)
+- Use lucide-react icons only (no inline SVG)
+- Keep the table responsive on mobile (current behavior)
+- Don't touch the database schema or API
+
+📦 RELEVANT FILES TO INSPECT:
+- `src/app/admin/articles/page.tsx` (the main page)
+- `src/lib/format.ts` (date helpers — fDate, fNum, fDateTime, fRelative)
+- `src/app/api/articles/route.ts` (to confirm `authorName` is returned in GET)
+
+🎁 BONUS (if simple):
+- On hover over the AI badge, show a tooltip "صورة مولدة بالذكاء الاصطناعي"

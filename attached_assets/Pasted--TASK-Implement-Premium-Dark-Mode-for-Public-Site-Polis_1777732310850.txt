@@ -1,0 +1,406 @@
+
+
+📋 TASK: Implement Premium Dark Mode for Public Site & Polish Admin Dark Mode
+
+🎯 GOAL:
+1. Implement a refined, premium dark mode for the PUBLIC newspaper site (Property Middle East front-end)
+2. Polish the existing admin dashboard dark mode to feel cohesive and elegant
+
+🌙 PHILOSOPHY:
+"Dark mode is NOT just inverted colors. It's a separate design system that respects 
+the eye, preserves hierarchy, and conveys depth through subtle contrast — not stark black."
+
+═══════════════════════════════════════════════
+1️⃣ DARK MODE COLOR SYSTEM
+═══════════════════════════════════════════════
+
+❌ WHAT TO AVOID:
+- Pure black backgrounds (#000) — harsh on eyes, hides depth
+- Pure white text on black — too much contrast, causes halation
+- Same colors as light mode just darker — kills mood
+- Bright saturated colors that "bleed" on dark
+- Removing all shadows (depth disappears)
+
+✅ DO THIS INSTEAD:
+
+LAYERED BACKGROUND SYSTEM (creates depth):
+- Layer 0 (deepest): #0a0a0d (almost black, slight blue tint)
+- Layer 1 (page bg): #0f0f12 (slate-950 vibe)
+- Layer 2 (cards):   #18181b (zinc-900)
+- Layer 3 (elevated): #27272a (zinc-800)
+- Layer 4 (hover):    #3f3f46 (zinc-700)
+
+BORDERS:
+- Default: rgba(255,255,255,0.06) — barely visible
+- Strong:  rgba(255,255,255,0.10)
+- Brand:   {brand}-500/30
+
+TEXT:
+- Primary:   #FAFAFA (off-white, never pure white)
+- Secondary: #D4D4D8 (zinc-300)
+- Muted:     #A1A1AA (zinc-400)
+- Faint:     #71717A (zinc-500)
+
+BRAND COLORS in DARK:
+- Burgundy adjusted: lifted saturation +10%, lifted lightness +15% for visibility
+  - Use #C9384A or rose-500 for active states (instead of dark burgundy)
+- Accents (gold/amber): keep slightly desaturated to avoid "bleeding"
+
+SEMANTIC COLORS in DARK:
+- Success: emerald-400 (lifted from emerald-500)
+- Warning: amber-400
+- Danger:  rose-400
+- Info:    sky-400
+
+═══════════════════════════════════════════════
+2️⃣ PUBLIC SITE — DARK MODE (NEW)
+═══════════════════════════════════════════════
+
+Implement dark mode toggle and styling for ALL public pages:
+
+PAGES TO STYLE:
+- Homepage `/`
+- Article page `/article/[slug]`
+- Category page `/category/[slug]`
+- Keyword page `/keyword/[keyword]`
+
+COMPONENTS TO STYLE:
+- SiteHeader (with all sub-components)
+- HeroSection
+- LivePulseBar
+- AIBriefWidget
+- LatestNewsGrid
+- SportsSection
+- VideoSection
+- EditorsPicks
+- MostReadStrip
+- NewsletterHero
+- SiteFooter
+- ArticleSidebar (with all 5 sub-widgets)
+- ReadingProgress
+- StoryCard (all variants: lead, side, row, tile)
+- All admin-shared components
+
+DARK MODE TOGGLE:
+- Location: in SiteHeader, replace the existing Moon icon button
+- Behavior: cycles between Light → Dark → System (3 states)
+- Icon changes: Sun (light) → Moon (dark) → Monitor (system)
+- Persist preference in `localStorage`
+- Respect `prefers-color-scheme` for "system" mode
+- Smooth transition (300ms ease) on toggle — not instant
+- No flash of wrong theme on page load (use a script in <head>)
+
+IMPLEMENTATION APPROACH:
+- Use Tailwind's built-in dark mode: `dark:` prefix
+- Add `darkMode: 'class'` to tailwind.config.ts
+- Toggle by adding/removing `dark` class on `<html>`
+- Create a `ThemeProvider` context (React context with state)
+
+KEY VISUAL ADJUSTMENTS PER COMPONENT:
+
+📰 HEADER:
+- Top utility bar: bg-zinc-950 (instead of bg-ink) → keep dark, looks consistent
+- Masthead: bg-zinc-900 (was bg-paper)
+- Logo: invert white version of logo (or use SVG with currentColor)
+- Active nav: text-rose-400 with thin underline
+- Border-bottom: border-white/10
+
+🟢 LIVE PULSE BAR:
+- Background: gradient from-rose-950/40 via-zinc-900 to-rose-950/40
+- Live dot: brighter green (emerald-400) with stronger glow
+- Text: text-zinc-200
+
+⭐ HERO SECTION:
+- Card bg: bg-zinc-900 with border-white/5
+- Image overlay: gradient from-zinc-950 (90%) — preserves image readability
+- Title: text-white (font remains extrabold)
+- Excerpt: text-zinc-300
+- Meta: text-zinc-400
+- Hover: shadow-[0_0_40px_rgba(225,29,72,0.15)] (subtle rose glow)
+
+🤖 AI DAILY BRIEF:
+- Background: gradient from-rose-950/30 via-zinc-900 to-rose-950/20 with border border-rose-500/20
+- Decorative circles: opacity-[0.04] (more subtle)
+- Quote line: gradient from-rose-400 via-rose-500 to-rose-400/40
+- Text: text-zinc-200
+- Brain icon container: bg-gradient-to-br from-rose-700 to-rose-900
+
+🏆 SPORTS SECTION (full-width):
+- Background: gradient from-rose-950 via-zinc-950 to-rose-950 (replace burgundy/ink with darker tones)
+- Pattern overlay: opacity-[0.02]
+- Decorative blurs: bg-rose-500/10 blur-3xl
+- Cards inside: bg-zinc-900/60 backdrop-blur with border-white/10
+- Text accents: text-rose-300 instead of rose-cream
+
+🎬 VIDEO SECTION (full-width):
+- Background: gradient from-zinc-950 via-zinc-900 to-zinc-950
+- Decorative blurs: subtle rose tint
+- Play button: bg-rose-500/95 (more vibrant for visibility)
+- Video cards: bg-zinc-900 with border-white/5
+
+📊 STAT CARDS (LatestNewsGrid, EditorsPicks, MostReadStrip):
+- Card bg: bg-zinc-900
+- Border: border-white/8
+- Hover: border-rose-500/30, lift transform
+- Image area: bg-zinc-800 (placeholder)
+- Title: text-zinc-100
+- Category badge: bg-rose-500/15 text-rose-400 border-rose-500/30
+- Meta info: text-zinc-500
+
+📧 NEWSLETTER HERO:
+- Background: gradient from-zinc-900 via-rose-950/30 to-zinc-900
+- Border: border-rose-500/20
+- Input: bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500
+- Button: bg-rose-500 hover:bg-rose-600 (more vibrant in dark)
+
+🦶 FOOTER:
+- Background: gradient from-zinc-950 via-zinc-900 to-black
+- Logo: brightness-100 invert-0 (use light logo)
+- Headings: text-rose-300 (instead of yellow which we removed)
+- Links: text-zinc-400 hover:text-rose-300
+- Social icons: bg-white/5 hover with brand colors retained
+
+📖 ARTICLE PAGE:
+- Body text: text-zinc-200 (high readability)
+- Headings (h1, h2, h3): text-white
+- Code blocks: bg-zinc-800 with border-white/10
+- Blockquotes: border-rose-500 bg-rose-950/20
+- Links: text-rose-400 hover:text-rose-300 underline
+- Tables: border-white/10, alternating rows bg-zinc-900/50
+
+🔍 ARTICLE SIDEBAR:
+- All widget cards: bg-zinc-900 border-white/8
+- AskTheArticle:
+  - Header gradient: from-rose-700 to-rose-900
+  - User messages: bg-rose-600 text-white
+  - AI messages: bg-zinc-800 text-zinc-200 border-white/5
+  - Input: bg-zinc-800 border-zinc-700
+- KeyPoints: checkmark icon → text-emerald-400
+- ShareWidget: hover colors preserved (Twitter blue, FB blue, etc.)
+
+📊 READING PROGRESS BAR:
+- Background: bg-rose-500 (more vibrant)
+- Glow effect: shadow-[0_0_8px_rgba(244,63,94,0.5)]
+
+═══════════════════════════════════════════════
+3️⃣ ADMIN DASHBOARD — DARK MODE POLISH
+═══════════════════════════════════════════════
+
+If admin already has a basic dark mode, REFINE it with these improvements:
+
+SIDEBAR:
+- Background: bg-zinc-950 (instead of pure black or navy)
+- Border-right: border-white/5
+- Active item: bg-{brand}-500/15 text-{brand}-300
+- Hover: bg-white/5
+- Section labels: text-zinc-500 (more subtle)
+- Icon brightness: text-zinc-400 default, text-{brand}-400 active
+- User avatar area: bg-zinc-900 with border-top
+
+DASHBOARD:
+- Page bg: bg-zinc-950
+- Greeting card: bg-gradient-to-br from-zinc-900 via-zinc-900 to-rose-950/30
+- Hero cards (top metrics): each with subtle colored top border
+  - Articles: border-t-2 border-indigo-500
+  - Users: border-t-2 border-emerald-500
+  - Comments: border-t-2 border-amber-500
+- Charts: 
+  - Use semi-transparent fills (opacity-30)
+  - Grid lines: rgba(255,255,255,0.05)
+  - Labels: text-zinc-400
+  - Axes: text-zinc-500
+
+TABLES (article list, users, etc.):
+- Header bg: bg-zinc-900 with border-bottom-white/10
+- Row bg: alternating zinc-950/zinc-900
+- Hover: bg-white/[0.02]
+- Borders: border-white/5
+
+FORMS (article editor, settings):
+- Input bg: bg-zinc-900 border-zinc-800
+- Input focus: border-{brand}-500 ring-{brand}-500/20
+- Textarea: same as inputs
+- Toggle switches: 
+  - Off: bg-zinc-700
+  - On: bg-{brand}-500
+- Buttons primary: bg-{brand}-500 hover:bg-{brand}-400
+
+MODALS:
+- Overlay: bg-black/60 backdrop-blur-sm
+- Modal bg: bg-zinc-900 border-white/10
+- Title: text-white
+- Body: text-zinc-300
+
+DROPDOWN MENUS:
+- Bg: bg-zinc-900 border-white/10 shadow-2xl
+- Items: text-zinc-300 hover:bg-white/5
+- Separators: border-white/5
+
+TOAST NOTIFICATIONS:
+- Bg: bg-zinc-900 border-white/10
+- Success: border-l-4 border-emerald-500
+- Error: border-l-4 border-rose-500
+- Warning: border-l-4 border-amber-500
+
+═══════════════════════════════════════════════
+4️⃣ TRANSITION & PERSISTENCE
+═══════════════════════════════════════════════
+
+GLOBAL TRANSITIONS (in CSS or globals.css):
+```css
+* {
+  transition: background-color 200ms ease, 
+              border-color 200ms ease, 
+              color 200ms ease;
+}⚠️ But exclude transforms and other properties to prevent jank!
+
+PREVENT FLASH (in <head> of layout):
+
+<script dangerouslySetInnerHTML={{
+  __html: `
+    try {
+      const theme = localStorage.getItem('theme') || 'system';
+      const resolved = theme === 'system' 
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : theme;
+      document.documentElement.classList.toggle('dark', resolved === 'dark');
+      document.documentElement.style.colorScheme = resolved;
+    } catch {}
+  `
+}} />PERSIST PREFERENCE:
+
+• Save to localStorage on toggle
+• Sync between admin and public site (same key: theme)
+• Provide a setting in admin to set default theme for the entire site
+
+═══════════════════════════════════════════════
+5️⃣ ACCESSIBILITY
+═══════════════════════════════════════════════
+
+REQUIREMENTS:
+
+• Contrast ratios meet WCAG AA (4.5:1 for body text, 3:1 for large text)
+• Focus rings visible: ring-2 ring-{brand}-500 ring-offset-2 ring-offset-zinc-950
+• Don't rely solely on color (e.g. error states have icons too)
+• Respect prefers-reduced-motion — disable transitions for users who set this
+
+═══════════════════════════════════════════════
+6️⃣ IMAGES IN DARK MODE
+═══════════════════════════════════════════════
+
+• Apply subtle filter to images: filter brightness-90 saturate-[0.95]
+  • Reduces eye strain when surrounded by dark UI
+• Logo handling:
+  • Use <picture> with light/dark variants
+  • OR use SVG with currentColor
+  • OR apply dark:invert dark:brightness-90 for monochrome logos
+• Article featured images: ensure overlay is darker in dark mode
+• Placeholder colors for empty images: bg-zinc-800
+
+═══════════════════════════════════════════════
+7️⃣ SPECIAL CASES
+═══════════════════════════════════════════════
+
+CODE BLOCKS (in articles):
+
+• Bg: bg-zinc-950 (deeper than card)
+• Text: text-zinc-200
+• Syntax highlighting: use a dark theme like "dracula" or "tokyo-night"
+
+EMBEDS (Twitter, YouTube, etc):
+
+• Wrap with a dark-themed container
+• Twitter embeds: use the data-theme="dark" attribute
+
+CHARTS (Recharts):
+
+• Pass dark colors via theme prop
+• Tooltip bg: bg-zinc-900 border-white/10
+
+═══════════════════════════════════════════════
+✅ ACCEPTANCE CRITERIA
+═══════════════════════════════════════════════
+
+• [ ] Dark mode toggle in public site header (3-state: light/dark/system)
+• [ ] No "flash of wrong theme" on page load
+• [ ] All public pages support dark mode flawlessly
+• [ ] Admin dark mode polished with new color system
+• [ ] Theme persists across sessions and pages
+• [ ] System mode respects OS preference
+• [ ] Smooth transitions (no jarring switches)
+• [ ] Contrast ratios meet WCAG AA
+• [ ] No TypeScript errors
+• [ ] All components tested in both modes
+
+═══════════════════════════════════════════════
+⚠️ HARD CONSTRAINTS
+═══════════════════════════════════════════════
+
+• Don't use pure black (#000) anywhere
+• Don't use pure white (#FFF) text — use #FAFAFA
+• Don't change ANY functional behavior — visual only
+• Don't add new dependencies
+• Use only Tailwind's dark: modifier
+• Set darkMode: 'class' in tailwind.config.ts
+• Test on real screens (not just dev tools)
+
+═══════════════════════════════════════════════
+📦 EXECUTION PLAN
+═══════════════════════════════════════════════
+
+EXECUTE IN THIS ORDER (commit each step):
+
+1. Setup:
+
+  • Update tailwind.config.ts to use darkMode: 'class'
+  • Create ThemeProvider context
+  • Add anti-flash script in <head>
+  • Build the toggle button component (3-state cycle)
+2. Public Site - Foundation:
+
+  • SiteHeader (toggle integration)
+  • SiteFooter
+  • Layout wrapper
+3. Public Site - Homepage Components:
+
+  • HeroSection
+  • LivePulseBar
+  • AIBriefWidget
+  • StoryCard variants
+4. Public Site - Sections:
+
+  • SportsSection (full-width)
+  • VideoSection (full-width)
+  • LatestNewsGrid
+  • EditorsPicks
+  • MostReadStrip
+  • NewsletterHero
+5. Public Site - Article Page:
+
+  • Article body styles (prose-invert)
+  • Article sidebar (5 widgets)
+  • Reading progress
+6. Admin Polish:
+
+  • Sidebar refinement
+  • Dashboard cards
+  • Tables
+  • Forms
+  • Modals
+  • Toasts
+7. Final Testing:
+
+  • Run accessibility check
+  • Verify no flash on load
+  • Test on multiple pages
+  • Mobile responsive check
+
+═══════════════════════════════════════════════
+🎁 BONUS POLISH
+═══════════════════════════════════════════════
+
+• Auto dark mode at sunset: optional setting "Auto switch at 7 PM"
+• Reading mode: even darker mode for night reading (sepia tint option?)
+• Subtle ambient glow: very faint colored gradient that shifts slowly in dark mode
+• Theme-aware images: load lighter versions of decorative images in dark mode
+

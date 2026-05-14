@@ -1,0 +1,199 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #fbf7f4;
+    --paper: #ffffff;
+    --bg-2: #f5efe9;
+    --ink: #1f1a1c;
+    --ink-soft: #7a6d72;
+    --ink-2: #4a3f43;
+    --ink-faint: #b3a8ac;
+    --line: #ede4dd;
+    --line-soft: #f3ebe3;
+    --burgundy: #8c1d2b;
+    --rose-cream: #fce8e9;
+    --card-shadow: 0 2px 4px rgba(31,26,28,0.06), 0 12px 32px rgba(31,26,28,0.08);
+
+    /* Chart colors — flip in .dark */
+    --chart-grid: #ede4dd;
+    --chart-axis: #b3a8ac;
+    --chart-axis-2: #7a6d72;
+    --chart-line: #8c1d2b;
+    --chart-line-prev: #d8a5aa;
+    --chart-area-from: rgba(140, 29, 43, 0.25);
+    --chart-area-to: rgba(140, 29, 43, 0);
+    --chart-dot-fill: #ffffff;
+    --chart-donut-track: #ede4dd;
+    --chart-donut-center: #1f1a1c;
+    --chart-c1: #8c1d2b;
+    --chart-c2: #b53d4a;
+    --chart-c3: #b8924a;
+    --chart-c4: #7a9081;
+    --chart-c5: #3a4a5e;
+    --chart-c6: #d8a5aa;
+  }
+
+  /* Premium dark — layered zinc with lifted brand burgundy.
+     No pure black, no pure white. Designed for long-form reading. */
+  .dark {
+    --bg: #0f0f12;          /* page background — softer than pure black */
+    --paper: #18181b;        /* cards, panels (zinc-900) */
+    --bg-2: #1f1f23;         /* subtle elevated surface (above paper) */
+    --ink: #FAFAFA;          /* primary text — never pure white */
+    --ink-2: #D4D4D8;        /* secondary body */
+    --ink-soft: #A1A1AA;     /* muted meta */
+    --ink-faint: #71717A;    /* faint helpers, separators on text */
+    --line: rgba(255,255,255,0.10);
+    --line-soft: rgba(255,255,255,0.06);
+    --burgundy: #C9384A;     /* lifted brand for visibility on dark */
+    --rose-cream: #2a1418;   /* dark equivalent of rose-cream wash */
+    --card-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.5);
+    color-scheme: dark;
+
+    /* Chart colors — dark variants */
+    --chart-grid: rgba(255, 255, 255, 0.08);
+    --chart-axis: #71717A;
+    --chart-axis-2: #A1A1AA;
+    --chart-line: #f87171;
+    --chart-line-prev: #b76570;
+    --chart-area-from: rgba(248, 113, 113, 0.22);
+    --chart-area-to: rgba(248, 113, 113, 0);
+    --chart-dot-fill: #18181b;
+    --chart-donut-track: rgba(255, 255, 255, 0.07);
+    --chart-donut-center: #FAFAFA;
+    --chart-c1: #f87171;   /* محليات — bright rose */
+    --chart-c2: #fb7185;   /* اقتصاد — rose-400 */
+    --chart-c3: #fbbf24;   /* رياضة — amber */
+    --chart-c4: #86efac;   /* منوعات — emerald */
+    --chart-c5: #93c5fd;   /* عالم — sky */
+    --chart-c6: #f9a8d4;   /* تقنية — pink */
+  }
+
+  html {
+    font-family: 'Tajawal', system-ui, sans-serif;
+  }
+
+  body {
+    @apply bg-bg text-ink antialiased;
+    font-feature-settings: "tnum" off, "kern" on;
+  }
+
+  /* Subtle paper grain (light only — dark gets its own variant) */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='1'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.025 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+  /* Reduce noise grain in dark — it would read as TV static */
+  .dark body::before {
+    opacity: 0.18;
+  }
+
+  ::selection {
+    @apply bg-rose-cream text-burgundy;
+  }
+  .dark ::selection {
+    background: rgba(201, 56, 74, 0.35);
+    color: #FAFAFA;
+  }
+
+  /* Smooth theme switch — only colors/borders/bg, never transforms.
+     Honors prefers-reduced-motion. */
+  *,
+  *::before,
+  *::after {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+    }
+  }
+
+  /* Premium focus ring that stays visible in dark */
+  :focus-visible {
+    outline: none;
+  }
+  .dark :focus-visible {
+    box-shadow: 0 0 0 2px #0f0f12, 0 0 0 4px #C9384A;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm;
+  }
+  .btn-primary {
+    @apply btn bg-burgundy text-white shadow-red hover:bg-burgundy-dark hover:-translate-y-0.5;
+  }
+  .btn-secondary {
+    @apply btn bg-paper text-ink-2 border border-line hover:bg-bg-2;
+  }
+
+  .card {
+    @apply bg-paper border border-line rounded-2xl p-6;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-full;
+  }
+  .pill-burgundy {
+    @apply pill bg-rose-cream text-burgundy dark:bg-rose-500/15 dark:text-rose-300;
+  }
+
+  .input {
+    @apply w-full px-4 py-3 rounded-xl border border-line bg-paper text-ink text-sm outline-none focus:border-burgundy;
+  }
+
+  /* Dark image filter — slightly tones down photos so they don't glare */
+  .dark-image-filter {
+    @apply transition-[filter];
+  }
+  .dark .dark-image-filter,
+  .dark img:not(.no-dark-filter) {
+    filter: brightness(0.9) saturate(0.95);
+  }
+
+  /* Live pulse */
+  .live-dot {
+    @apply w-1.5 h-1.5 rounded-full bg-burgundy;
+    animation: live-pulse 1.5s infinite;
+  }
+  @keyframes live-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(140, 29, 43, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(140, 29, 43, 0); }
+  }
+  .dark .live-dot {
+    background: #fb7185;
+  }
+  .dark .live-dot {
+    animation: live-pulse-dark 1.5s infinite;
+  }
+  @keyframes live-pulse-dark {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(251, 113, 133, 0); }
+  }
+}
+
+/* TipTap editor styles */
+.tiptap-editor {
+  @apply min-h-[300px] prose prose-lg dark:prose-invert max-w-none focus:outline-none;
+  font-family: 'Tajawal', sans-serif;
+  direction: rtl;
+}
+
+.tiptap-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply text-ink-faint pointer-events-none float-right h-0;
+}

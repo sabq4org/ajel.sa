@@ -1,0 +1,26 @@
+# Railway service configuration for the api-server artifact.
+#
+# Repo root is the build context so we get the full pnpm workspace
+# (lib/db, lib/api-zod, lib/shared, etc.). Only api-server is built;
+# the build command runs esbuild via build.mjs, producing a single
+# bundle at artifacts/api-server/dist/index.mjs that the start command
+# launches directly (no pnpm at runtime).
+#
+# Set these env vars in Railway:
+#   DATABASE_URL        Railway Postgres connection string
+#   AUTH_SECRET         shared secret with ajelsa (Vercel)
+#   FRONTEND_ORIGIN     https://ajel.sa  (drives CORS allow-origin)
+#   COOKIE_DOMAIN       .ajel.sa         (so ajel.sa + api.ajel.sa share the session cookie)
+#   NODE_ENV            production
+#   PORT                Railway sets this automatically; api-server reads it.
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build"
+
+[deploy]
+startCommand = "node --enable-source-maps artifacts/api-server/dist/index.mjs"
+healthcheckPath = "/api/healthz"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

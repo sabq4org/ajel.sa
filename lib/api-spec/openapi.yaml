@@ -1,0 +1,1159 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: Storage
+    description: Object storage upload and serving endpoints.
+  - name: Auth
+    description: Session lifecycle (login, logout, current session).
+  - name: RBAC
+    description: Roles & permissions management.
+  - name: Users
+    description: Newsroom user accounts (legacy enum-role; staff endpoints add the RBAC layer).
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Sign in with email + password
+      description: |
+        Verifies credentials and sets the `ajel_session` httpOnly cookie on
+        success. The cookie carries a snapshot of the user's permission keys
+        so subsequent permission checks can be zero-DB on the JWT side.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login succeeded; session cookie set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Bad credentials or inactive account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Clear the session cookie
+      description: Clears the `ajel_session` cookie. Idempotent.
+      responses:
+        '200':
+          description: Cookie cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResult'
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: Return the current session's identity
+      description: |
+        Used by the admin UI to detect self-edits (e.g. when an admin is
+        editing their own staff record). Returns 401 when no session is
+        present so the client can hide self-only UI.
+      responses:
+        '200':
+          description: Current session identity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /permissions:
+    get:
+      tags: [RBAC]
+      operationId: listPermissions
+      summary: List all permissions, grouped by category
+      description: |
+        Returns the full permission registry (seeded from
+        `PERMISSION_REGISTRY`) along with category groupings keyed by the
+        Arabic category labels. Requires the `roles.view` permission.
+      responses:
+        '200':
+          description: Permissions list + groupings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionsList'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `roles.view` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /roles:
+    get:
+      tags: [RBAC]
+      operationId: listRoles
+      summary: List all roles
+      description: |
+        Returns all roles ordered by descending level + Arabic name, each
+        with `permissionCount` and `userCount` aggregates. Requires the
+        `roles.view` permission.
+      responses:
+        '200':
+          description: Roles list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RolesList'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `roles.view` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [RBAC]
+      operationId: createRole
+      summary: Create a new non-system role
+      description: Requires `roles.create`. The created role is not a system role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Role created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleWrap'
+        '400':
+          description: Invalid body or duplicate key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `roles.create` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /roles/{id}:
+    get:
+      tags: [RBAC]
+      operationId: getRole
+      summary: Get a single role with its permissions + user count
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Role details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDetail'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `roles.view` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    patch:
+      tags: [RBAC]
+      operationId: updateRole
+      summary: Edit a role (name, description, level). Cannot edit system roles' key/isSystem.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Role updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleWrap'
+        '400':
+          description: Invalid body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `roles.edit` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      tags: [RBAC]
+      operationId: deleteRole
+      summary: Delete a non-system role with no assigned users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Role deleted.
+        '400':
+          description: Cannot delete system role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `roles.delete` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Role still has assigned users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /roles/{id}/permissions:
+    put:
+      tags: [RBAC]
+      operationId: replaceRolePermissions
+      summary: Replace the permission set of a role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplacePermissionsRequest'
+      responses:
+        '200':
+          description: Permissions replaced.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplacePermissionsResult'
+        '400':
+          description: One or more permission IDs do not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `roles.edit` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /users:
+    get:
+      tags: [Users]
+      operationId: listUsers
+      summary: List all newsroom users
+      description: Requires `users.view`. Ordered by creation desc.
+      responses:
+        '200':
+          description: Users list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersList'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `users.view` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [Users]
+      operationId: createUser
+      summary: Create a new newsroom user
+      description: Requires `users.create`. Hashes the password before insert.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWrap'
+        '400':
+          description: Invalid body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `users.create` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /users/options:
+    get:
+      tags: [Users]
+      operationId: listUsersOptions
+      summary: Lightweight dropdown options for linking an author profile
+      description: |
+        Returns ONLY id/email/fullName/role/avatarUrl for ACTIVE users.
+        Gated by `authors.manage` since the only legitimate caller is the
+        author create/edit form.
+      responses:
+        '200':
+          description: Compact users list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersOptionsList'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `authors.manage` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /users/{id}:
+    patch:
+      tags: [Users]
+      operationId: updateUser
+      summary: Update a user's profile + optional password reset
+      description: Requires `users.edit`. Role enum change invalidates the user's permission cache.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWrap'
+        '400':
+          description: Invalid body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `users.edit` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      tags: [Users]
+      operationId: deleteUser
+      summary: Delete a user
+      description: Requires `users.delete`. Cannot delete the current session's own account.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted.
+        '400':
+          description: Attempted to delete the calling user's own account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `users.delete` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /users/{id}/role:
+    put:
+      tags: [Users]
+      operationId: assignUserRole
+      summary: Assign a role (by roleId) to a user, or clear it
+      description: "Requires `users.assign_roles`. Passing `roleId: null` clears the role assignment."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignUserRoleRequest'
+      responses:
+        '200':
+          description: Role assignment updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWrap'
+        '400':
+          description: roleId references a non-existent role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Missing `users.assign_roles` permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      description: |
+        Returns a presigned GCS URL for direct upload. The client sends JSON
+        metadata here, then uploads the file directly to the returned URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Failed to generate upload URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset from PUBLIC_OBJECT_SEARCH_PATHS
+      description: |
+        Unconditionally public — no authentication or ACL checks.
+        Searches PUBLIC_OBJECT_SEARCH_PATHS for the given file path.
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Relative file path within the public search paths.
+      responses:
+        '200':
+          description: Object content streamed with correct Content-Type.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Failed to serve public object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity from PRIVATE_OBJECT_DIR
+      description: |
+        Serves object entities uploaded via presigned URLs. These can optionally
+        be protected with authentication or ACL checks based on the use case.
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Object path within the private object dir (e.g. `uploads/some-uuid`).
+      responses:
+        '200':
+          description: Object content streamed with correct Content-Type.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Failed to serve object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Original file name.
+        size:
+          type: integer
+          minimum: 1
+          description: File size in bytes.
+        contentType:
+          type: string
+          minLength: 1
+          description: MIME type of the file (e.g. `image/jpeg`).
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+          description: Presigned GCS URL for PUT upload.
+        objectPath:
+          type: string
+          description: Normalized object path (e.g. `/objects/uploads/uuid`). Store this in your database.
+        metadata:
+          $ref: '#/components/schemas/UploadUrlRequest'
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    SessionUser:
+      type: object
+      required: [id, email, fullName, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        role:
+          type: string
+          description: Legacy enum role (super_admin, editor_in_chief, editor, writer, contributor). New code should use permission keys.
+        avatarUrl:
+          type: string
+          nullable: true
+          description: Internal `/api/storage/objects/...` path or absolute http(s) URL.
+    LoginResult:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: '#/components/schemas/SessionUser'
+    LogoutResult:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+    MeResponse:
+      type: object
+      required: [userId, email, fullName]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+    Permission:
+      type: object
+      required: [id, key, category, labelAr, position]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        category:
+          type: string
+        labelAr:
+          type: string
+        labelEn:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        position:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    PermissionGroup:
+      type: object
+      required: [category, labelAr, items]
+      properties:
+        category:
+          type: string
+        labelAr:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+    PermissionsList:
+      type: object
+      required: [items, groups]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionGroup'
+    RoleSummary:
+      type: object
+      required: [id, key, nameAr, level, isSystem, permissionCount, userCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        nameAr:
+          type: string
+        nameEn:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        level:
+          type: integer
+        isSystem:
+          type: boolean
+        permissionCount:
+          type: integer
+        userCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    RolesList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleSummary'
+    Role:
+      type: object
+      required: [id, key, nameAr, level, isSystem]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        nameAr:
+          type: string
+        nameEn:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        level:
+          type: integer
+        isSystem:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    RolePermissionRef:
+      type: object
+      required: [id, key, category, labelAr, position]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        category:
+          type: string
+        labelAr:
+          type: string
+        position:
+          type: integer
+    RoleDetail:
+      type: object
+      required: [role, permissions, userCount]
+      properties:
+        role:
+          $ref: '#/components/schemas/Role'
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RolePermissionRef'
+        userCount:
+          type: integer
+    RoleWrap:
+      type: object
+      required: [role]
+      properties:
+        role:
+          $ref: '#/components/schemas/Role'
+    CreateRoleRequest:
+      type: object
+      required: [key, nameAr]
+      properties:
+        key:
+          type: string
+          minLength: 2
+          maxLength: 60
+          pattern: '^[a-z][a-z0-9_]*$'
+          description: Lowercase ASCII letters, digits, underscores; must start with a letter.
+        nameAr:
+          type: string
+          minLength: 1
+          maxLength: 100
+        nameEn:
+          type: string
+          maxLength: 100
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        level:
+          type: integer
+          minimum: 0
+          maximum: 1000
+          default: 10
+        permissionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    UpdateRoleRequest:
+      type: object
+      properties:
+        nameAr:
+          type: string
+          minLength: 1
+          maxLength: 100
+        nameEn:
+          type: string
+          maxLength: 100
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        level:
+          type: integer
+          minimum: 0
+          maximum: 1000
+    ReplacePermissionsRequest:
+      type: object
+      properties:
+        permissionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          default: []
+    ReplacePermissionsResult:
+      type: object
+      required: [ok, count]
+      properties:
+        ok:
+          type: boolean
+        count:
+          type: integer
+    UserListItem:
+      type: object
+      required: [id, email, fullName, role, isActive]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        twitterHandle:
+          type: string
+          nullable: true
+        role:
+          type: string
+          description: Legacy enum role.
+        isActive:
+          type: boolean
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    UsersList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserListItem'
+    UserOption:
+      type: object
+      required: [id, email, fullName, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        role:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+    UsersOptionsList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserOption'
+    UserDetail:
+      type: object
+      required: [id, email, fullName, role, isActive]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        role:
+          type: string
+        roleId:
+          type: string
+          format: uuid
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    UserWrap:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserDetail'
+    CreateUserRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 200
+        bio:
+          type: string
+        twitterHandle:
+          type: string
+          maxLength: 50
+        role:
+          type: string
+          enum: [super_admin, editor_in_chief, editor, writer, contributor]
+          default: writer
+        isActive:
+          type: boolean
+          default: true
+    UpdateUserRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 200
+        bio:
+          type: string
+          nullable: true
+        twitterHandle:
+          type: string
+          maxLength: 50
+          nullable: true
+        role:
+          type: string
+          enum: [super_admin, editor_in_chief, editor, writer, contributor]
+        isActive:
+          type: boolean
+        password:
+          type: string
+          minLength: 8
+    AssignUserRoleRequest:
+      type: object
+      required: [roleId]
+      properties:
+        roleId:
+          type: string
+          format: uuid
+          nullable: true

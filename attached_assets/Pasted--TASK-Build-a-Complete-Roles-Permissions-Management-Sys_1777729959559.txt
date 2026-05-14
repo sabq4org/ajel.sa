@@ -1,0 +1,372 @@
+
+───
+
+📋 TASK: Build a Complete Roles & Permissions Management System
+
+🎯 GOAL:
+Create a full RBAC (Role-Based Access Control) system with 5 predefined roles, 
+fine-grained permissions, and an admin UI to manage role-permission mappings dynamically.
+
+📍 SCOPES:
+- Database schema (new tables: roles, permissions, role_permissions, user_roles)
+- Backend logic (permission checks, helpers)
+- Admin UI: `/admin/roles` page
+- API endpoints to manage roles/permissions
+
+═══════════════════════════════════════════════
+1️⃣ DATABASE SCHEMA (Drizzle ORM)
+═══════════════════════════════════════════════
+
+Add to `src/lib/db/schema.ts`:
+
+```typescript
+// Roles table
+export const roles = pgTable("roles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: varchar("key", { length: 50 }).notNull().unique(),  // system_admin, supervisor, content_manager, reporter, columnist
+  nameAr: varchar("name_ar", { length: 100 }).notNull(),
+  nameEn: varchar("name_en", { length: 100 }).notNull(),
+  description: text("description"),
+  isSystem: boolean("is_system").notNull().default(false), // true for built-in roles (cannot delete)
+  level: integer("level").notNull().default(0),            // higher = more powerful (used for hierarchy)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Permissions table
+export const permissions = pgTable("permissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: varchar("key", { length: 100 }).notNull().unique(),  // articles.create, articles.publish, articles.delete...
+  nameAr: varchar("name_ar", { length: 200 }).notNull(),
+  nameEn: varchar("name_en", { length: 200 }).notNull(),
+  category: varchar("category", { length: 50 }).notNull(), // articles, users, media, settings, ai
+  description: text("description"),
+});
+
+// Role-Permission mapping (many-to-many)
+export const rolePermissions = pgTable("role_permissions", {
+  roleId: uuid("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+  permissionId: uuid("permission_id").notNull().references(() => permissions.id, { onDelete: "cascade" }),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.roleId, t.permissionId] }),
+}));
+
+// User-Role mapping (a user can have one role; or many-to-many if needed later)
+// Update existing users table OR create user_roles join table
+// Recommended: add `roleId` column to existing users tableIf users table already has a role enum column, MIGRATE it:
+
+• Add new column roleId uuid with FK to roles.id
+• Migration script copies old enum value → matches to new role.key
+• Keep old role column temporarily for safety, mark deprecated
+
+═══════════════════════════════════════════════
+2️⃣ SEED DATA (Built-in Roles + Permissions)
+═══════════════════════════════════════════════
+
+Create file src/lib/db/seed-roles.ts and run it once:
+
+ROLES (with isSystem: true and proper hierarchy levels):
+
+| key             | nameAr       | level | description                                 |
+| --------------- | ------------ | ----- | ------------------------------------------- |
+| system_admin    | مسؤول النظام | 100   | صلاحيات كاملة على النظام والإعدادات التقنية |
+| supervisor      | المشرف العام | 80    | إدارة المحتوى والمستخدمين والإعدادات العامة |
+| content_manager | مدير المحتوى | 60    | نشر الأخبار وإدارة المحرر والمراجعة         |
+| reporter        | مراسل        | 40    | إضافة الأخبار كمسودات (بدون نشر)            |
+| columnist       | كاتب رأي     | 40    | كتابة المقالات (بدون نشر)                   |PERMISSIONS (50+ permissions organized by category):
+
+CATEGORY: articles
+
+• articles.view              → عرض الأخبار
+• articles.create            → إنشاء خبر جديد
+• articles.edit_own          → تعديل أخباره الخاصة
+• articles.edit_any          → تعديل أي خبر
+• articles.delete_own        → حذف أخباره الخاصة
+• articles.delete_any        → حذف أي خبر
+• articles.publish           → نشر الخبر مباشرة
+• articles.unpublish         → إلغاء نشر خبر منشور
+• articles.feature           → جعل الخبر مميزاً
+• articles.schedule          → جدولة النشر
+
+CATEGORY: opinion (for columnists)
+
+• opinion.create             → كتابة مقال رأي
+• opinion.edit_own           → تعديل مقالاته
+• opinion.publish            → نشر المقال (يعطى لمدير المحتوى فقط)
+
+CATEGORY: media
+
+• media.upload               → رفع صور
+• media.delete               → حذف الوسائط
+• media.ai_generate          → استخدام توليد الصور AI
+
+CATEGORY: ai
+
+• ai.smart_edit              → استخدام التحرير الذكي
+• ai.daily_brief             → إدارة النشرة اليومية
+• ai.ask_article             → استخدام Chat AI
+
+CATEGORY: users
+
+• users.view                 → عرض المستخدمين
+• users.create               → إضافة مستخدم
+• users.edit                 → تعديل المستخدمين
+• users.delete               → حذف المستخدمين
+• users.assign_roles         → تعيين الأدوار
+
+CATEGORY: roles
+
+• roles.view                 → عرض الأدوار
+• roles.create               → إنشاء أدوار جديدة
+• roles.edit                 → تعديل الأدوار
+• roles.delete               → حذف الأدوار (غير المنظومة)
+
+CATEGORY: settings
+
+• settings.view              → عرض الإعدادات
+• settings.edit              → تعديل الإعدادات
+
+CATEGORY: analytics
+
+• analytics.view             → عرض التحليلات
+
+CATEGORY: comments
+
+• comments.moderate          → إدارة التعليقات
+
+CATEGORY: workflow
+
+• workflow.approve           → الموافقة على المسودات
+• workflow.reject            → رفض المسودات
+
+DEFAULT ROLE-PERMISSIONS MAPPING:
+
+system_admin: ALL permissions
+
+supervisor:
+
+• articles.* (all)
+• users.* (all)
+• settings.* (all)
+• analytics.view
+• comments.moderate
+• workflow.* (all)
+• media.* (all)
+• ai.* (all)
+• opinion.* (all)
+• roles.view (cannot edit roles)
+
+content_manager:
+
+• articles.view, create, edit_own, edit_any, publish, unpublish, feature, schedule
+• media.upload, ai_generate
+• ai.smart_edit, ai.ask_article
+• workflow.approve, workflow.reject
+• opinion.publish (نشر مقالات الرأي)
+• analytics.view
+
+reporter:
+
+• articles.view
+• articles.create
+• articles.edit_own
+• media.upload
+• media.ai_generate
+• ai.smart_edit
+⚠️ NO publish, NO edit_any, NO delete
+
+columnist:
+
+• opinion.create
+• opinion.edit_own
+• articles.view (just to see published articles)
+• media.upload
+• ai.smart_edit
+⚠️ NO publish
+
+═══════════════════════════════════════════════
+3️⃣ BACKEND HELPERS
+═══════════════════════════════════════════════
+
+Create src/lib/permissions.ts:
+
+// Get user's permissions
+export async function getUserPermissions(userId: string): Promise<string[]>
+
+// Check if user has a specific permission
+export async function hasPermission(userId: string, key: string): Promise<boolean>
+
+// Check if user has ANY of the given permissions
+export async function hasAnyPermission(userId: string, keys: string[]): Promise<boolean>
+
+// Check if user has ALL of the given permissions
+export async function hasAllPermissions(userId: string, keys: string[]): Promise<boolean>
+
+// Middleware-style: throw 403 if missing permission
+export async function requirePermission(userId: string, key: string): Promise<void>Update src/lib/auth.ts:
+
+• Add new helper requirePerm(permissionKey) similar to existing requireRole
+• Sessions should include user permissions array (cached for performance)
+
+═══════════════════════════════════════════════
+4️⃣ ADMIN UI: /admin/roles
+═══════════════════════════════════════════════
+
+Create new page: src/app/admin/roles/page.tsx
+
+LAYOUT:
+
+• Page title: "الأدوار والصلاحيات"
+• Two-column layout:
+  • LEFT: List of roles (cards with name, level, user count, [Edit] [Delete] buttons)
+    • System roles show a 🔒 lock icon (cannot delete)
+    • "+ إضافة دور جديد" button at top
+  • RIGHT: Permission matrix for selected role
+• Grouped by category (articles, users, ai, etc.)
+    • Each permission has a toggle switch
+    • "حفظ التغييرات" button (sticky at bottom)
+• Real-time count of granted permissions per category
+
+INTERACTIONS:
+
+• Click on a role → loads its permissions on the right
+• Toggle permissions → mark dirty state
+• Save → POST/PUT to /api/roles/[id]/permissions
+• Add new role: modal with [name_ar, name_en, description, level]
+• Delete role: confirmation dialog (only for non-system roles)
+• Editing a role's basic info (name, description, level): inline or modal
+
+VISUAL DESIGN:
+
+• Use the existing design system (burgundy, rose-cream, ink)
+• Permission categories with colored icons (lucide-react)
+• Toggle switches: burgundy when on, gray when off
+• Grouped sections with collapsible headers
+• Show "X من Y" granted next to each category title
+
+═══════════════════════════════════════════════
+5️⃣ API ENDPOINTS
+═══════════════════════════════════════════════
+
+/api/roles (GET, POST)
+
+• GET: list all roles with user counts and permission counts
+• POST: create new role { nameAr, nameEn, description, level } (require roles.create)
+
+/api/roles/[id] (GET, PATCH, DELETE)
+
+• GET: role details + its permissions
+• PATCH: update role basic info
+• DELETE: delete role (block if isSystem=true OR has assigned users)
+
+/api/roles/[id]/permissions (GET, PUT)
+
+• GET: list of granted permission keys
+• PUT: replace entire permissions list { permissions: [...keys] }
+
+/api/permissions (GET)
+
+• GET: list all available permissions grouped by category
+
+/api/users/[id]/role (PATCH)
+
+• PATCH: assign role to user { roleId } (require users.assign_roles)
+
+═══════════════════════════════════════════════
+6️⃣ INTEGRATION WITH EXISTING SYSTEM
+═══════════════════════════════════════════════
+
+UPDATE existing endpoints to use new permission checks:
+
+• POST /api/articles → require articles.create
+• PATCH /api/articles/[id] (status="published") → require articles.publish
+• PATCH /api/articles/[id] (other) → require articles.edit_own OR articles.edit_any
+• DELETE /api/articles/[id] → require articles.delete_own OR articles.delete_any
+• POST /api/upload → require media.upload
+• POST /api/ai/generate-image → require media.ai_generate
+• POST /api/ai/smart-edit → require ai.smart_edit
+
+When reporter/columnist tries to publish:
+
+• Force status to "draft" or "review" silently
+• Return article with status="draft" + message
+
+UPDATE the article editor UI:
+
+• If user lacks articles.publish → hide "نشر الآن" button, show only "حفظ كمسودة"
+• If columnist → restrict to opinion category only
+
+═══════════════════════════════════════════════
+7️⃣ ADMIN SIDEBAR
+═══════════════════════════════════════════════
+
+Add navigation item in admin sidebar (src/components/admin/AdminLayout.tsx):
+
+• Icon: ShieldCheck (lucide-react)
+• Label: "الأدوار والصلاحيات"
+• Path: /admin/roles
+• Required permission to see: roles.view
+
+═══════════════════════════════════════════════
+✅ ACCEPTANCE CRITERIA
+═══════════════════════════════════════════════
+
+• [ ] 5 default roles seeded with correct permissions
+• [ ] /admin/roles page works with full role-permission matrix
+• [ ] Adding/editing/deleting custom roles works
+• [ ] System roles cannot be deleted (only edited permissions)
+• [ ] Toggle permissions saves to DB correctly
+• [ ] Reporter cannot publish articles (forced to draft)
+• [ ] Columnist can only post opinion articles
+• [ ] Article editor hides "Publish" button if user lacks permission
+• [ ] All API endpoints check permissions correctly
+• [ ] No TypeScript errors (npx tsc --noEmit)
+• [ ] Migration runs cleanly without breaking existing users
+
+═══════════════════════════════════════════════
+⚠️ CONSTRAINTS
+═══════════════════════════════════════════════
+• Use Drizzle ORM (with raw SQL for complex queries if needed)
+• Use existing design system (burgundy/rose-cream/ink)
+• Use Tajawal font and Arabic labels
+• Use lucide-react icons only
+• Existing users without a role assignment → default to their old enum value mapped
+• Never hardcode permission checks in code — always use hasPermission(userId, key)
+• Cache user permissions in session for performance (invalidate on role change)
+
+═══════════════════════════════════════════════
+📦 SUGGESTED FILE STRUCTURE
+═══════════════════════════════════════════════
+src/
+lib/
+db/
+schema.ts          (add new tables)
+seed-roles.ts      (one-time seed script)
+permissions.ts       (new helpers)
+auth.ts              (update with requirePerm)
+app/
+admin/
+roles/
+page.tsx         (main page)
+components/
+RoleList.tsx
+PermissionMatrix.tsx
+RoleEditModal.tsx
+api/
+roles/
+route.ts                    (GET, POST)
+[id]/route.ts               (GET, PATCH, DELETE)
+[id]/permissions/route.ts   (GET, PUT)
+permissions/route.ts          (GET)
+users/[id]/role/route.ts      (PATCH)
+
+═══════════════════════════════════════════════
+🎁 BONUS (if time permits)
+═══════════════════════════════════════════════
+
+• Audit log entry when role permissions change
+• Show "Permissions Preview" before saving
+• Search/filter permissions by name in the matrix
+• Bulk assign role to multiple users
+• Role templates: "Copy from..." when creating new role
+

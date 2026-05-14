@@ -1,0 +1,22 @@
+{
+  "name": "@workspace/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jwt": "./src/jwt.ts",
+    "./password": "./src/password.ts",
+    "./permissions": "./src/permissions.ts",
+    "./legacy-roles": "./src/legacy-roles.ts",
+    "./activity-labels": "./src/activity-labels.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "catalog:"
+  }
+}

@@ -1,0 +1,575 @@
+
+
+📋 TASK: Build Complete Staff (Team Members) Management System
+
+🎯 GOAL:
+Create a comprehensive admin page to manage all "Ajel staff members" with:
+- Full profile data (avatar, bio, contacts, social links, etc.)
+- Role assignment (linked to RBAC system)
+- Permission control per member
+- Password management
+- Activity tracking
+- Beautiful, organized UI
+
+═══════════════════════════════════════════════
+1️⃣ DATABASE SCHEMA — UPDATE USERS TABLE
+═══════════════════════════════════════════════
+
+UPDATE existing `users` table in `src/lib/db/schema.ts` to add staff fields.
+If existing schema is minimal, EXTEND it with these fields:
+
+```typescript
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  // Authentication
+  email: varchar("email", { length: 200 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  
+  // Identity
+  fullName: varchar("full_name", { length: 200 }).notNull(),
+  displayName: varchar("display_name", { length: 100 }),  // اسم العرض / الكنية
+  slug: varchar("slug", { length: 200 }).unique(),         // for /author/[slug]
+  
+  // Contact
+  phone: varchar("phone", { length: 30 }),
+  alternateEmail: varchar("alternate_email", { length: 200 }),
+  
+  // Profile
+  avatarUrl: text("avatar_url"),
+  coverUrl: text("cover_url"),
+  bio: text("bio"),
+  shortBio: varchar("short_bio", { length: 300 }),  // for cards
+  jobTitle: varchar("job_title", { length: 150 }),  // المسمى الوظيفي
+  department: varchar("department", { length: 100 }), // القسم
+  
+  // Social Media
+  twitter: varchar("twitter", { length: 100 }),
+  linkedin: varchar("linkedin", { length: 200 }),
+  facebook: varchar("facebook", { length: 200 }),
+  instagram: varchar("instagram", { length: 100 }),
+  website: varchar("website", { length: 200 }),
+  
+  // Role & Permissions (link to RBAC)
+  roleId: uuid("role_id").references(() => roles.id),
+  customPermissions: jsonb("custom_permissions"), // override role perms (optional)
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  isVerified: boolean("is_verified").notNull().default(false),
+  emailVerifiedAt: timestamp("email_verified_at"),
+  
+  // Activity tracking
+  lastLoginAt: timestamp("last_login_at"),
+  lastSeenAt: timestamp("last_seen_at"),
+  loginCount: integer("login_count").notNull().default(0),
+  
+  // Workflow
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  leftAt: timestamp("left_at"),
+  
+  // Settings (preferences)
+  preferences: jsonb("preferences"), // theme, language, notifications, etc.
+  
+  // Meta
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdBy: uuid("created_by"),  // who added this user
+  
+  // Notes (admin-only)
+  internalNotes: text("internal_notes"),  // ملاحظات داخلية (للمدير فقط)
+}, (t) => ({
+  emailIdx: index("users_email_idx").on(t.email),
+  roleIdx: index("users_role_idx").on(t.roleId),
+  activeIdx: index("users_active_idx").on(t.isActive),
+}));If existing users table has fewer fields, ADD missing columns via migration.
+Keep backward compatibility with existing data.
+
+ADD activity log table for staff actions:
+
+export const userActivity = pgTable("user_activity", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: varchar("action", { length: 100 }).notNull(), // login, logout, article.publish, etc.
+  details: jsonb("details"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index("activity_user_idx").on(t.userId, t.createdAt),
+}));═══════════════════════════════════════════════
+2️⃣ STAFF LIST PAGE — /admin/staff
+═══════════════════════════════════════════════
+CREATE: src/app/admin/staff/page.tsx
+
+PAGE TITLE: "منسوبو عاجل" (Ajel Staff)
+
+LAYOUT:
+
+📊 TOP STATS BAR (3-4 cards):
+
+• إجمالي المنسوبين: 24
+• نشط الآن: 8 (with green pulse dot)
+• معطّلون: 3
+• منضمون هذا الشهر: 2
+
+🔍 FILTERS BAR:
+
+• Search: by name or email
+• Role filter: dropdown (كل الأدوار / مسؤول / مشرف / محرر / مراسل / كاتب)
+• Department filter: dropdown
+• Status: الكل / نشط / معطل / غير مفعّل
+• Sort: الأحدث / الأقدم / حسب الاسم / حسب آخر دخول
+
+➕ ACTION BUTTONS:
+
+• [+ إضافة منسوب جديد] (primary, burgundy)
+• [📥 تصدير قائمة] (outline)
+• [⚙️ إعدادات] (icon button)
+
+📋 STAFF TABLE/GRID (toggleable view):
+
+VIEW 1 - TABLE (default):
+
+| Avatar | Name + Role | Department | Email | Last Active | Status | Actions |
+| ------ | ----------- | ---------- | ----- | ----------- | ------ | ------- |
+| 🖼️    | محمد أحمد   | التحرير    | ...   | منذ 5 دقائق | 🟢 نشط | [...]   |VIEW 2 - CARDS (3-4 columns):
+
+• Cover photo on top (gradient if not set)
+• Avatar circle (overlapping)
+• Full name (bold)
+• Job title + role badge
+• Short bio (line-clamp-2)
+• Stats: "23 خبر · انضم منذ 6 أشهر"
+• Actions: [Edit] [Send Message] [...]
+
+CARD HOVER:
+
+• Lift effect (translate -2px)
+• Border becomes burgundy
+• Quick actions appear
+
+EMPTY STATE:
+
+• Illustration of empty team
+• "ابدأ ببناء فريق عاجل"
+• CTA: "إضافة أول منسوب"
+
+═══════════════════════════════════════════════
+3️⃣ ADD/EDIT STAFF MEMBER — /admin/staff/new + /admin/staff/[id]
+═══════════════════════════════════════════════
+
+CREATE PAGES:
+
+• src/app/admin/staff/new/page.tsx
+• src/app/admin/staff/[id]/page.tsx (edit/view profile)
+
+LAYOUT (Two-column on desktop):
+
+LEFT (Sidebar - 300px):
+
+• Profile card preview (live preview as you edit)
+  • Cover image
+  • Avatar
+  • Full name
+  • Job title
+  • Role badge
+  • Stats (read-only)
+• Save status indicator
+• [Save Changes] button (sticky)
+
+RIGHT (Main content - tabs):
+
+TAB 1: المعلومات الأساسية (Basic Info)
+
+• Full name (required) — Arabic
+• Display name (الكنية)
+• Email (required, unique)
+• Phone
+• Alternate email
+• Job title (e.g. "محرر أول")
+• Department (dropdown: تحرير، تسويق، تقنية، إدارة)
+
+TAB 2: الصور والملف الشخصي (Profile)
+
+• Avatar uploader:
+  • Click to upload
+  • Crop/resize tool (optional)
+  • Recommended: 400x400px
+• Cover image uploader:
+  • Wide aspect 3:1
+  • Optional
+• Short bio (300 chars max with counter)
+• Long bio (rich text editor)
+• Slug (auto-generated, editable)
+
+TAB 3: التواصل والروابط (Social)
+
+• Twitter handle
+• LinkedIn URL
+• Facebook URL
+• Instagram handle
+• Personal website
+• Each with appropriate icon and validation
+
+TAB 4: الدور والصلاحيات (Role & Permissions)
+
+• Role dropdown (with descriptions):
+  • Cards showing each role with its description
+  • Click to select
+  • Show "X permissions granted" preview
+• Custom permissions override (advanced):
+  • Toggle: "تخصيص الصلاحيات لهذا المنسوب"
+  • If on: show full permission matrix to override
+  • Visual diff: "من الدور الافتراضي" vs "مخصص"
+• Show "Effective permissions" summary at bottom
+
+TAB 5: كلمة المرور والأمان (Security)
+
+• Current password (only when editing self)
+• New password
+• Confirm new password
+• Strength meter
+• Two-factor auth toggle (future)
+• Session management:
+  • List of active sessions (device, IP, last activity)
+  • "Force logout all" button
+• Email verification status + resend button
+
+TAB 6: الحالة والإعدادات (Status)
+
+• Active toggle (إيقاف يمنعه من الدخول)
+• Verified toggle (admin-only)
+• Joined date (read-only)
+• Internal notes (textarea, admin-only)
+• Danger zone:
+  • Deactivate account (soft delete)
+  • Delete account permanently (with confirmation: type their name)
+
+TAB 7: السجل والنشاط (Activity)
+
+• Stats:
+  • Total articles published: X
+  • Total articles drafted: Y
+  • Total comments moderated: Z
+  • Last login: ...
+  • Login count: ...
+• Recent activity feed (last 20 actions)
+• Activity chart (bar chart of activity over last 30 days)
+═══════════════════════════════════════════════
+4️⃣ INDIVIDUAL STAFF PROFILE VIEW — /admin/staff/[id]/profile
+═══════════════════════════════════════════════
+
+PUBLIC-FACING profile inside admin (read-only view):
+
+LAYOUT:
+
+• Cover image (full width hero)
+• Avatar overlapping cover (large)
+• Name + role + department
+• Action buttons (admin-only): [Edit] [Send Message] [Disable]
+• Tabs:
+  • نظرة عامة (Bio, contact, recent articles)
+  • مقالاته (full list with stats)
+  • السجل (activity timeline)
+  • الأداء (performance dashboard)
+
+═══════════════════════════════════════════════
+5️⃣ API ENDPOINTS
+═══════════════════════════════════════════════
+
+GET    /api/staff — list all staff (paginated, filterable)
+
+• Query params: search, roleId, department, isActive, page, limit, sortBy
+• Returns: { items, total, page, totalPages }
+
+POST   /api/staff — create new staff member
+
+• Required: fullName, email, password, roleId
+• Send welcome email with credentials (if email service configured)
+
+GET    /api/staff/[id] — get full staff details
+
+• Includes role with permissions, activity stats
+
+PATCH  /api/staff/[id] — update staff (any field)
+
+• Validate permissions: must have users.edit or be self editing own profile
+
+DELETE /api/staff/[id] — delete staff (hard delete)
+
+• Confirmation required
+• Reassign their articles to another author or "Former Staff"
+
+PATCH  /api/staff/[id]/password — change password
+
+• For self: requires current password
+• For admin: just new password (with audit log)
+
+PATCH  /api/staff/[id]/role — change role
+
+• Permission: users.assign_roles
+• Audit log entry
+
+PATCH  /api/staff/[id]/status — activate/deactivate
+
+• Permission: users.edit
+
+POST   /api/staff/[id]/avatar — upload avatar
+
+• Use Cloudinary
+
+POST   /api/staff/[id]/cover — upload cover
+
+GET    /api/staff/[id]/activity — activity log
+
+• Paginated
+
+GET    /api/staff/[id]/articles — articles by this staff
+
+• Filtered by status
+
+POST   /api/staff/[id]/force-logout — invalidate all sessions
+
+GET    /api/staff/options — minimal list for dropdowns
+
+• Returns: [{ id, fullName, avatarUrl, role }]
+
+GET    /api/staff/stats — global stats
+
+• Total, active, by role, by department, monthly growth
+
+═══════════════════════════════════════════════
+6️⃣ AUTH & PASSWORD HANDLING
+═══════════════════════════════════════════════
+
+PASSWORD REQUIREMENTS:
+
+• Minimum 8 characters
+• At least 1 uppercase, 1 lowercase, 1 number
+• Hash with bcrypt (10 rounds)
+• Never return password in API responses
+
+PASSWORD CHANGE FLOW:
+
+• For self: require current password verification
+• For admin changing other's password:
+  • Force user to change on next login (set mustChangePassword: true)
+  • Log activity
+  • Optionally send email notification
+
+PASSWORD RESET:
+
+• Generate secure token
+• Email with reset link
+• Token expires in 1 hour
+• Single-use
+
+═══════════════════════════════════════════════
+7️⃣ AVATAR & FILE HANDLING
+═══════════════════════════════════════════════
+
+USE EXISTING CLOUDINARY SETUP:
+
+• Avatar folder: staff/avatars
+• Cover folder: staff/covers
+• Auto-resize:
+  • Avatars: 400x400 (squared, smart crop face detection)
+  • Covers: 1500x500 (wide)
+• Auto-format: WebP
+• Quality: auto:good
+
+UPLOADER COMPONENT:
+
+• Drag and drop
+• Click to browse
+• Preview before save
+• Progress bar
+• Validate: max 5MB, image only
+
+═══════════════════════════════════════════════
+8️⃣ INTEGRATION WITH OTHER SYSTEMS
+═══════════════════════════════════════════════
+
+CONNECT WITH:
+
+📰 ARTICLES SYSTEM:
+
+• When creating/editing article, "Author" dropdown shows staff with relevant roles only
+• Reporter role: cannot publish (forced to draft)
+• Columnist role: only for opinion articles
+
+🔐 RBAC SYSTEM:
+
+• Role assignment in staff edit screen
+• Effective permissions calculated from role + custom overrides
+• Admin sidebar items shown based on user permissions
+
+📊 ANALYTICS:
+
+• Staff performance dashboard
+• Top contributors leaderboard
+• Activity heatmap
+
+📝 OPINION ARTICLES:
+
+• "Authors" table can be linked to staff users
+• Staff with columnist role appear in author dropdown
+• Or: Authors table is separate from Users (current design)
+
+═══════════════════════════════════════════════
+9️⃣ SIDEBAR NAVIGATION
+═══════════════════════════════════════════════
+
+UPDATE admin sidebar:
+
+REPLACE existing "Users" or "المستخدمون" with:
+
+📁 الفريق
+├── 👥 منسوبو عاجل → /admin/staff
+├── ➕ إضافة منسوب → /admin/staff/new
+├── 🛡️ الأدوار والصلاحيات → /admin/roles
+└── 📊 إحصاءات الفريق → /admin/staff/stats
+
+Use icons:
+
+• Section: UsersRound
+• Staff list: Users
+• New: UserPlus
+• Roles: ShieldCheck
+• Stats: BarChart3
+
+═══════════════════════════════════════════════
+🔟 PERMISSIONS REQUIRED
+═══════════════════════════════════════════════
+
+PERMISSION KEYS NEEDED:
+
+• staff.view          — view staff list
+• staff.view_self     — view own profile
+• staff.create        — add new staff
+• staff.edit          — edit any staff
+• staff.edit_self     — edit own profile (always granted)
+• staff.delete        — delete staff
+• staff.activate      — enable/disable accounts
+• staff.assign_role   — change someone's role
+• staff.view_activity — see others' activity logs
+• staff.reset_password — reset others' passwords
+• staff.view_stats    — see team analytics
+
+DEFAULT ASSIGNMENTS:
+
+• system_admin: ALL
+• supervisor: all except staff.delete
+• content_manager: only staff.view + staff.edit_self
+• reporter/columnist: only staff.view_self + staff.edit_self
+
+═══════════════════════════════════════════════
+1️⃣1️⃣ UX POLISH
+═══════════════════════════════════════════════
+
+LIVE PREVIEW:
+
+• As admin types in name/bio, the preview card on the left updates in real-time
+• Avatar preview updates immediately on upload
+
+VALIDATION:
+
+• Email uniqueness (real-time check)
+• Slug uniqueness (real-time)
+• Inline error messages
+• Smart suggestions (e.g. suggest slug from name)
+
+CONFIRMATIONS:
+
+• Critical actions need confirmation (delete, deactivate, role change)
+• "Type the name to confirm" for delete
+• Toast notifications on success
+• Detailed error messages on failure
+
+KEYBOARD SHORTCUTS:
+
+• Cmd+S: Save
+• Cmd+Enter: Save and close
+• Esc: Cancel
+
+ACCESSIBILITY:
+
+• Tab order makes sense
+• Form labels properly linked
+• Error announcements for screen readers
+
+═══════════════════════════════════════════════
+✅ ACCEPTANCE CRITERIA
+═══════════════════════════════════════════════
+
+• [ ] Database schema updated with all staff fields
+• [ ] Migration runs cleanly
+• [ ] /admin/staff list page works (table + cards toggle)
+• [ ] Filters and search work in real-time
+• [ ] Stats bar shows correct numbers
+• [ ] Add new staff works (with email + password)
+• [ ] Edit staff with all 7 tabs working
+• [ ] Avatar/cover upload to Cloudinary
+• [ ] Role assignment integrates with RBAC
+• [ ] Custom permissions override works
+• [ ] Password change works (self and admin)
+• [ ] Activity log records actions
+• [ ] Activity tab shows recent actions
+• [ ] Delete staff with confirmation
+• [ ] Deactivate prevents login
+• [ ] All API endpoints have proper permission checks
+• [ ] No TypeScript errors
+• [ ] Mobile responsive
+
+═══════════════════════════════════════════════
+⚠️ HARD CONSTRAINTS
+═══════════════════════════════════════════════
+
+• Use Drizzle ORM + raw SQL for complex queries
+• Use Cloudinary for all images (existing setup)
+• Use bcrypt for password hashing
+• Use existing JWT auth system
+• Use existing design system (burgundy + rose-cream)
+• Use Tajawal font
+• Arabic UI (no English in user-facing strings)
+• Use lucide-react icons exclusively
+• Don't add new heavy dependencies
+• Always validate permissions on backend (don't trust frontend)
+• Email service: optional (use console.log if not configured)
+• Migrate existing users without data loss
+
+═══════════════════════════════════════════════
+📦 EXECUTION ORDER
+═══════════════════════════════════════════════
+
+1. Database schema + migration
+2. Auth helpers update (password handling)
+3. API endpoints (CRUD + auth)
+4. Cloudinary integration for avatars/covers or Bucket ID 
+5. /admin/staff list page (with stats)
+6. /admin/staff/new page (Tabs 1, 2, 3)
+7. /admin/staff/[id] edit (all 7 tabs)
+8. Activity log integration
+9. Sidebar nav update
+10. Connect with articles author dropdowns
+11. Connect with RBAC system
+12. Test all flows end-to-end
+
+═══════════════════════════════════════════════
+🎁 BONUS POLISH
+═══════════════════════════════════════════════
+
+• Welcome email template (HTML, with credentials)
+• Password reset email template
+• "Birthday wish" notification when staff joined date matches
+• Onboarding checklist for new staff
+• Staff directory page (public, optional /team page)
+• Org chart visualization (departments tree)
+• Team activity feed (live updates)
+• Staff search command (Cmd+K integration)
+• Bulk import staff from CSV
+• Export staff list to Excel
+• "Last seen" indicator (online/away/offline)
+• Staff message system (DM between members)
+

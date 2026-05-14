@@ -1,0 +1,457 @@
+
+
+📋 TASK: Build Complete Opinion Articles (مقالات الرأي) System
+
+🎯 GOAL:
+Create a dedicated opinion articles management system with:
+- Admin pages to manage opinion articles (list, create, edit, delete)
+- Author selection from a dropdown of registered columnists
+- Public-facing display with a beautiful 8-card section on homepage
+- Dedicated category/listing page for all opinion articles
+
+═══════════════════════════════════════════════
+1️⃣ DATABASE SCHEMA
+═══════════════════════════════════════════════
+
+ADD to `src/lib/db/schema.ts`:
+
+```typescript
+// Authors/Columnists table
+export const authors = pgTable("authors", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  fullName: varchar("full_name", { length: 200 }).notNull(),
+  slug: varchar("slug", { length: 200 }).notNull().unique(),
+  bio: text("bio"),
+  shortBio: varchar("short_bio", { length: 300 }), // for cards
+  avatarUrl: text("avatar_url"),
+  email: varchar("email", { length: 200 }),
+  twitter: varchar("twitter", { length: 100 }),
+  isActive: boolean("is_active").notNull().default(true),
+  position: integer("position").notNull().default(0), // for ordering
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }), // optional link to user account
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Opinion Articles table (separate from regular articles)
+export const opinionArticles = pgTable("opinion_articles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: varchar("slug", { length: 300 }).notNull().unique(),
+  title: varchar("title", { length: 300 }).notNull(),
+  subtitle: varchar("subtitle", { length: 500 }),
+  excerpt: text("excerpt"),
+  contentHtml: text("content_html"),
+  contentJson: jsonb("content_json"),
+  featuredImageUrl: text("featured_image_url"),
+  
+  // Author relationship
+  authorId: uuid("author_id").notNull().references(() => authors.id),
+  
+  // Workflow
+  status: articleStatusEnum("status").notNull().default("draft"),
+  
+  // SEO
+  metaTitle: varchar("meta_title", { length: 200 }),
+  metaDescription: text("meta_description"),
+  metaKeywords: text("meta_keywords"),
+  
+  // Stats
+  viewCount: integer("view_count").notNull().default(0),
+  commentCount: integer("comment_count").notNull().default(0),
+  shareCount: integer("share_count").notNull().default(0),
+  readingTimeMinutes: integer("reading_time_minutes"),
+  
+  // Flags
+  isFeatured: boolean("is_featured").notNull().default(false),
+  excludeFromHome: boolean("exclude_from_home").notNull().default(false),
+  
+  // Dates
+  publishedAt: timestamp("published_at"),
+  scheduledAt: timestamp("scheduled_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  authorIdx: index("opinion_author_idx").on(t.authorId),
+  statusIdx: index("opinion_status_idx").on(t.status, t.publishedAt),
+}));
+
+// Relations
+export const authorsRelations = relations(authors, ({ many, one }) => ({
+  articles: many(opinionArticles),
+  user: one(users, {
+    fields: [authors.userId],
+    references: [users.id],
+  }),
+}));
+
+export const opinionArticlesRelations = relations(opinionArticles, ({ one }) => ({
+  author: one(authors, {
+    fields: [opinionArticles.authorId],
+    references: [authors.id],
+  }),
+}));After schema update:
+
+• Run migration: npm run db:push
+• Seed 5 sample authors (with avatars and bios)
+
+═══════════════════════════════════════════════
+2️⃣ ADMIN AUTHORS MANAGEMENT
+═══════════════════════════════════════════════
+
+CREATE PAGE: src/app/admin/authors/page.tsx
+
+LAYOUT:
+
+• Header: "كتّاب الرأي" with [+ إضافة كاتب] button
+• Grid of author cards (3-4 columns):
+  • Avatar (large circle, fallback to initial)
+  • Full name (bold)
+  • Short bio (text-sm muted, line-clamp-2)
+• Stats: "12 مقال · 234 ألف قراءة"
+  • Status badge: نشط / غير نشط
+• Actions: [Edit] [Toggle Active] [Delete]
+• Empty state: illustration + "لم يتم إضافة كتّاب بعد"
+
+ADD/EDIT MODAL:
+
+• Avatar uploader (with preview)
+• Full name (required)
+• Slug (auto-generated, editable)
+• Short bio (max 300 chars, with counter)
+• Long bio (rich text or textarea)
+• Email
+• Twitter handle
+• Active toggle
+• Position (for ordering)
+• Optional: link to existing user account (dropdown)
+
+API ENDPOINTS:
+
+• GET    /api/authors — list all authors with article counts
+• POST   /api/authors — create author (require users.create or new perm authors.manage)
+• GET    /api/authors/[id] — author details with their articles
+• PATCH  /api/authors/[id] — update author
+• DELETE /api/authors/[id] — delete author (confirm if has articles)
+• GET    /api/authors/options — minimal list { id, fullName, avatarUrl } for dropdowns
+
+═══════════════════════════════════════════════
+3️⃣ ADMIN OPINION ARTICLES MANAGEMENT
+═══════════════════════════════════════════════
+
+CREATE PAGE: src/app/admin/opinions/page.tsx
+
+DESIGN: Mirror the existing src/app/admin/articles/page.tsx exactly, but for opinions.
+
+LAYOUT:
+
+• Header: "مقالات الرأي" with [+ مقال جديد] button
+• Filters bar:
+  • Status: الكل / منشور / مسودة / مراجعة / مجدول
+  • Author: dropdown of all authors (with avatar)
+  • Search: search by title
+• Table with columns:
+  • Title (with AI badge if AI-generated image)
+  • Author (avatar + name)
+  • Status (colored pill)
+  • Created date (Gregorian + time)
+  • View count
+  • Actions: [Edit] [Preview] [Delete]
+• Pagination at the bottom
+
+CREATE PAGE: src/app/admin/opinions/new/page.tsx
+
+• Layout identical to article editor (src/app/admin/articles/new/page.tsx)
+• DIFFERENCES from regular articles:
+  • NO category selection (all are "رأي")
+  • Replace "نوع الخبر" dropdown with AUTHOR DROPDOWN
+  • Author dropdown:
+    • Required field
+    • Shows avatar + name in each option
+    • Search/filter as you type
+    • Must select before publishing
+  • Same SmartEditBar (AI editing)
+  • Same Image Generator (AI image)
+  • Same SEO section
+  • Same publish/draft buttons
+  • Same Sidebar (image, schedule, etc.)
+
+EDIT PAGE: src/app/admin/opinions/[id]/edit/page.tsx
+
+• Same as new but pre-populated
+• Show author info prominently
+• Allow changing the author (with confirmation)
+
+API ENDPOINTS:
+
+• GET    /api/opinions — paginated list
+• POST   /api/opinions — create
+• GET    /api/opinions/[id] — detail
+• PATCH  /api/opinions/[id] — update
+• DELETE /api/opinions/[id] — delete
+
+PERMISSIONS (integrate with new RBAC if implemented):
+
+• opinion.view        — view list
+• opinion.create      — add new opinion
+• opinion.edit_own    — columnists edit their own
+• opinion.edit_any    — managers edit any
+• opinion.publish     — publish opinion (managers only)
+• opinion.delete      — delete
+
+═══════════════════════════════════════════════
+4️⃣ SIDEBAR NAVIGATION
+═══════════════════════════════════════════════
+
+Update src/components/admin/AdminLayout.tsx (or wherever sidebar is):
+
+ADD a new section "مقالات الرأي" with sub-items:
+
+• 📝 المقالات → /admin/opinions
+• ➕ مقال جديد → /admin/opinions/new
+• ✍️ الكتّاب → /admin/authors
+
+Use icons:
+
+• Section icon: PenTool (lucide-react)
+• Articles: FileText
+• New: PlusCircle
+• Authors: Users
+
+═══════════════════════════════════════════════
+5️⃣ PUBLIC SITE — OPINION SECTION ON HOMEPAGE
+═══════════════════════════════════════════════
+
+CREATE COMPONENT: src/components/public/OpinionsSection.tsx
+
+PURPOSE: Display latest 8 opinion articles on homepage in a beautiful 4-column grid.
+
+LAYOUT:
+
+• Section header with PenTool icon
+  • Title: "كتّاب الرأي"
+• Subtitle: "أصوات وآراء من قادة الفكر والإعلام"
+  • "كل المقالات →" link to /opinions
+
+GRID: 4 columns × 2 rows (8 cards total)
+
+• Mobile: 1 col
+• Tablet: 2 cols
+• Desktop: 4 cols
+
+CARD DESIGN (PREMIUM):
+
+• Background: white card with rose-cream/30 subtle bg
+• Top: Author info bar
+  • Circular avatar (40px)
+  • Author name (font-bold)
+  • Author short bio (text-xs muted)
+• Middle: Article title (line-clamp-3, font-extrabold, text-base)
+• Hover: subtle lift + border becomes burgundy
+• Bottom:
+  • Date (text-xs)
+  • Read time (e.g. "5 د قراءة")
+  • View count
+
+OR ALTERNATE PREMIUM DESIGN (more editorial):
+
+• Quote icon (decorative) in top-right corner
+• Author avatar large at top
+• Big author name "بقلم: محمد العمري"
+• Article title (bold, prominent)
+• 1-line excerpt
+• Hover: card flips slightly OR reveals "اقرأ المقال →"
+
+VARIATIONS:
+
+• Use a subtle alternating background pattern (some cards with rose-cream, others white)
+• Or have one "featured" card spanning 2 cells with bigger image
+
+═══════════════════════════════════════════════
+6️⃣ INTEGRATE ON HOMEPAGE
+═══════════════════════════════════════════════
+
+Update src/app/(public)/page.tsx:
+
+ADD:
+
+1. Import OpinionsSection and query helper
+2. Fetch latest 8 opinion articles
+3. Insert section after EditorsPicks and before MostReadStrip (or wherever fits best editorially)
+
+// In page.tsx
+const [featured, latestArticles, mostReadArticles, sports, opinions] = await Promise.all([
+  getFeaturedArticles(8),
+  getLatestArticles(50),
+  getMostReadArticles(5),
+  getCategoryArticles("sports", 4, 0),
+  getLatestOpinions(8),
+]);
+
+// In JSX
+{opinions.length > 0 && (
+  <OpinionsSection articles={opinions} />
+)}═══════════════════════════════════════════════
+7️⃣ DEDICATED OPINIONS PAGE
+═══════════════════════════════════════════════
+
+CREATE PAGE: src/app/(public)/opinions/page.tsx
+
+LAYOUT:
+
+• Hero header: gradient bg with title "مقالات الرأي" and subtitle
+• Featured columnist of the week (large card)
+• Filter by author (chips at top — avatar + name)
+• Grid of all opinion articles (12 per page, paginated)
+• Sidebar (right side): "أبرز كتّابنا" — top 5 authors with stats
+
+═══════════════════════════════════════════════
+8️⃣ INDIVIDUAL OPINION ARTICLE PAGE
+═══════════════════════════════════════════════
+
+CREATE PAGE: src/app/(public)/opinion/[slug]/page.tsx
+
+LAYOUT: Similar to article page but with editorial focus:
+
+• Above title: large author bar
+  • Avatar (60px)
+  • Author name (large, bold)
+  • Author short bio
+  • "تابعه على تويتر →" link
+• Article title (extra-large, serif font?)
+• Subtitle
+• Featured image (optional)
+• Content (longer prose)
+• Below content:
+  • Author full bio card (with all author's stats)
+  • "مقالات أخرى للكاتب" (3 more opinions by same author)
+• Same article sidebar (KeyPoints, AskTheArticle, Stats, Share)
+
+URL STRUCTURE:
+
+• /opinion/[slug] — single opinion
+• /opinions — all opinions
+• /opinions/author/[slug] — all opinions by specific author
+
+═══════════════════════════════════════════════
+9️⃣ AUTHOR PROFILE PAGE
+═══════════════════════════════════════════════
+
+CREATE PAGE: src/app/(public)/opinions/author/[slug]/page.tsx
+
+LAYOUT:
+
+• Hero section:
+  • Large author avatar (left)
+  • Name + full bio (right)
+  • Stats: "X مقال · Y ألف قراءة · منذ Z"
+  • Social links (Twitter, etc.)
+• Grid of all author's articles
+• Pagination
+
+═══════════════════════════════════════════════
+🔟 QUERY HELPERS
+═══════════════════════════════════════════════
+
+Add to src/lib/queries/opinions.ts (NEW FILE):
+
+export async function getLatestOpinions(limit = 8) {
+  // Returns published opinions with author info
+  // Excludes excludeFromHome=true
+}
+
+export async function getOpinionBySlug(slug: string) {
+  // With author + tags
+}
+
+export async function getOpinionsByAuthor(authorSlug: string, limit = 20) {
+  // All opinions by specific author
+}
+
+export async function getActiveAuthors() {
+  // For dropdowns and listings
+}
+
+export async function getAuthorBySlug(slug: string) {
+  // With all their articles
+}
+
+export async function getFeaturedAuthor() {
+  // The "columnist of the week" — most viewed author this week
+}
+═══════════════════════════════════════════════
+1️⃣1️⃣ NAVIGATION & LINKING
+═══════════════════════════════════════════════
+
+UPDATE PUBLIC HEADER:
+
+• Add "مقالات الرأي" to main nav (between current categories)
+• Or add a special icon for it (PenTool)
+UPDATE SITEMAP:
+
+• Include /opinions
+• Include /opinion/[slug] for each
+• Include /opinions/author/[slug] for each
+
+═══════════════════════════════════════════════
+✅ ACCEPTANCE CRITERIA
+═══════════════════════════════════════════════
+
+• [ ] Database schema for authors and opinion_articles
+• [ ] /admin/authors page works (list, add, edit, delete)
+• [ ] /admin/opinions list page works (with filters, search, pagination)
+• [ ] /admin/opinions/new with author dropdown
+• [ ] /admin/opinions/[id]/edit pre-populated correctly
+• [ ] Homepage shows OpinionsSection with 4-col × 2-row grid (8 cards)
+• [ ] /opinions public page works
+• [ ] /opinion/[slug] individual article page
+• [ ] /opinions/author/[slug] author profile page
+• [ ] Sidebar nav has "مقالات الرأي" section
+• [ ] AI image generation works for opinions too
+• [ ] Smart edit AI works for opinions too
+• [ ] No TypeScript errors
+
+═══════════════════════════════════════════════
+⚠️ CONSTRAINTS
+═══════════════════════════════════════════════
+
+• Reuse existing components where possible (Editor, ImageGenerator, etc.)
+• Maintain consistency with regular articles design
+• Author selection must be REQUIRED (cannot publish without author)
+• Keep using existing design system (burgundy, rose-cream, ink)
+• Tajawal font, Arabic UI
+• Use existing AI endpoints (smart-edit, generate-image, key-points, ask-article)
+• All dates Gregorian with latin numerals
+• Use Drizzle ORM with raw SQL for complex queries (Drizzle enum bug workaround)
+
+═══════════════════════════════════════════════
+📦 EXECUTION PLAN (in order)
+═══════════════════════════════════════════════
+
+1. Database schema + migration
+2. Seed sample authors and 5 sample opinion articles
+3. Author management API + admin pages
+4. Opinion articles API
+5. Opinion admin list page
+6. Opinion admin new/edit pages (with author dropdown)
+7. Public OpinionsSection component
+8. Add to homepage
+9. /opinions listing page
+10. /opinion/[slug] detail page
+11. /opinions/author/[slug] author page
+12. Sidebar navigation update
+13. Header navigation update
+
+═══════════════════════════════════════════════
+🎁 BONUS POLISH
+═══════════════════════════════════════════════
+
+• Author signature image (their actual handwritten signature) at end of articles
+• "Follow author" feature (saved to localStorage)
+• Email notifications when followed author publishes
+• "Editor's choice" badge for selected opinions
+• Opinion of the day (large featured slot on homepage)
+• Author quotes carousel (rotating author photos with their best quotes)
+• Print-friendly view for opinion articles
+• Share article as image (auto-generated quote card)
+
+

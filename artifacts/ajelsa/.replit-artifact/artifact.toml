@@ -1,0 +1,74 @@
+kind = "web"
+previewPath = "/"
+title = "عاجل - صحيفة إلكترونية"
+version = "1.0.0"
+id = "artifacts/ajelsa"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+# api-server owns the generic "/api" prefix (and the entire /api/storage
+# surface). Every Next.js /api/* sub-path served by ajelsa must be listed
+# below so most-specific-prefix routing wins it back from api-server.
+# Never add /api/storage here.
+#
+# Paths removed (now owned by api-server, see artifacts/api-server/src/routes/):
+#   - /api/auth         → api-server (login, logout, me)
+#   - /api/permissions  → api-server (GET permissions list)
+#   - /api/roles        → api-server (full CRUD + permissions assignment)
+#   - /api/users        → api-server (full CRUD + role assignment + options)
+[[services]]
+name = "web"
+paths = [
+  "/api/admin",
+  "/api/ai",
+  "/api/ads",
+  "/api/articles",
+  "/api/authors",
+  "/api/analytics",
+  "/api/categories",
+  "/api/comments",
+  "/api/me",
+  "/api/media",
+  "/api/newsletter",
+  "/api/opinions",
+  "/api/polls",
+  "/api/revalidate",
+  "/api/settings",
+  "/api/staff",
+  "/api/tags",
+  "/api/upload",
+  "/"
+]
+localPort = 23233
+
+[services.development]
+run = "pnpm --filter @workspace/ajelsa run dev"
+
+[services.development.env]
+INTERNAL_API_URL = "http://localhost:8080/api"
+
+[services.production]
+
+[services.production.build]
+args = ["pnpm", "--filter", "@workspace/ajelsa", "run", "build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = ["pnpm", "--filter", "@workspace/ajelsa", "run", "start"]
+
+[services.production.run.env]
+PORT = "23233"
+NODE_ENV = "production"
+INTERNAL_API_URL = "http://localhost:8080/api"
+
+[services.production.health.startup]
+path = "/"
+
+[services.env]
+PORT = "23233"
+BASE_PATH = "/"
