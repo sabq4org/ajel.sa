@@ -139,10 +139,10 @@
      reduced-motion query removes the animation entirely. */
   @media (prefers-reduced-motion: no-preference) {
     ::view-transition-old(root) {
-      animation: ajel-fade-out 150ms ease-out;
+      animation: ajel-fade-out 100ms ease-out;
     }
     ::view-transition-new(root) {
-      animation: ajel-fade-in 200ms ease-in;
+      animation: ajel-fade-in 120ms ease-out;
     }
   }
   @keyframes ajel-fade-out {
