@@ -16,7 +16,11 @@
 
 [build]
 builder = "NIXPACKS"
-buildCommand = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build"
+# `corepack prepare` is explicit so Nixpacks' default pnpm (9.15.9) doesn't
+# win the PATH race — without it `pnpm install --frozen-lockfile` resolves
+# the wrong binary and rejects the lockfile (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH).
+# Version is also pinned via `packageManager` in package.json.
+buildCommand = "corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build"
 
 [deploy]
 startCommand = "node --enable-source-maps artifacts/api-server/dist/index.mjs"
