@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     "صحيفة عاجل الإلكترونية — الخبر السعودي والعربي بمصداقية وعمق. تابع آخر الأخبار العاجلة والاقتصاد والرياضة والتقنية.",
   keywords: ["عاجل", "أخبار السعودية", "صحيفة عاجل", "الخليج", "اقتصاد", "رياضة"],
   authors: [{ name: "صحيفة عاجل" }],
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://ajel.sa"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://ajelsa.net"),
   openGraph: {
     type: "website",
     locale: "ar_SA",

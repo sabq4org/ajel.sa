@@ -68,7 +68,7 @@ export default function SettingsPage() {
           <Field label="اسم الموقع" value={data.siteName} onChange={(v) => update("siteName", v)} placeholder="عاجل" />
           <Field label="الوصف القصير (Tagline)" value={data.siteTagline} onChange={(v) => update("siteTagline", v)} placeholder="صحيفة الحدث الأولى" />
           <Field label="الوصف الكامل" value={data.siteDescription} onChange={(v) => update("siteDescription", v)} multiline />
-          <Field label="رابط الموقع" value={data.siteUrl} onChange={(v) => update("siteUrl", v)} placeholder="https://ajel.sa" />
+          <Field label="رابط الموقع" value={data.siteUrl} onChange={(v) => update("siteUrl", v)} placeholder="https://ajelsa.net" />
         </Section>
 
         <Section title="الشعار والصور">
@@ -77,7 +77,7 @@ export default function SettingsPage() {
         </Section>
 
         <Section title="التواصل">
-          <Field label="البريد الإلكتروني" value={data.contactEmail} onChange={(v) => update("contactEmail", v)} placeholder="info@ajel.sa" type="email" />
+          <Field label="البريد الإلكتروني" value={data.contactEmail} onChange={(v) => update("contactEmail", v)} placeholder="info@ajelsa.net" type="email" />
         </Section>
 
         <Section title="الشبكات الاجتماعية">

@@ -7,7 +7,7 @@ function siteUrl(): string {
   const fromEnv =
     process.env.NEXT_PUBLIC_SITE_URL ||
     (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}` : null);
-  return fromEnv || "https://ajel.sa";
+  return fromEnv || "https://ajelsa.net";
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

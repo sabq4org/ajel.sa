@@ -8,8 +8,8 @@ either is idempotent or notes its rollback.
 
 | Surface | Host | Origin (prod) |
 |---|---|---|
-| Public site (Arabic RTL) + admin UI | Vercel | `https://ajel.sa` |
-| Express API (auth, RBAC, users, storage) | Railway | `https://api.ajel.sa` |
+| Public site (Arabic RTL) + admin UI | Vercel | `https://ajelsa.net` |
+| Express API (auth, RBAC, users, storage) | Railway | `https://api.ajelsa.net` |
 | Postgres | Railway Postgres | private network only |
 | Object storage (media uploads) | Cloudflare R2 / Cloudinary | (later batch) |
 
@@ -32,7 +32,7 @@ fetches go through `apiFetch` from `@/lib/apiClient`, which prepends
 - Postgres client tools (`pg_dump`/`pg_restore`/`psql`) with version
   matching the source DB major version
 - The current Neon `DATABASE_URL` (read-only is fine for the dump)
-- DNS access for `ajel.sa` (Cloudflare / Route53 / etc.)
+- DNS access for `ajelsa.net` (Cloudflare / Route53 / etc.)
 - A 32+ character `AUTH_SECRET` shared between both deployments
 
 ## 1. Provision Railway
@@ -52,13 +52,13 @@ In the Railway dashboard for the api-server service:
    - `DATABASE_URL` — Railway Postgres `DATABASE_PRIVATE_URL` (preferred;
      stays on the internal network).
    - `AUTH_SECRET` — 32+ random chars; keep identical to Vercel's.
-   - `FRONTEND_ORIGIN` — `https://ajel.sa`.
-   - `COOKIE_DOMAIN` — `.ajel.sa` (leading dot, shares with subdomain).
+   - `FRONTEND_ORIGIN` — `https://ajelsa.net`.
+   - `COOKIE_DOMAIN` — `.ajelsa.net` (leading dot, shares with subdomain).
    - `NODE_ENV` — `production`.
    - `PORT` — leave blank, Railway injects it.
-4. Add a custom domain → `api.ajel.sa`. Railway issues the cert.
+4. Add a custom domain → `api.ajelsa.net`. Railway issues the cert.
 
-Smoke test: `curl https://api.ajel.sa/api/healthz` → `{"status":"ok"}`.
+Smoke test: `curl https://api.ajelsa.net/api/healthz` → `{"status":"ok"}`.
 
 ## 2. Migrate the database (Neon → Railway)
 
@@ -98,7 +98,7 @@ In the Vercel dashboard:
    in vercel.json).
 5. **Output Directory**: `artifacts/ajelsa/.next` (set in vercel.json).
 6. Environment variables (from `artifacts/ajelsa/.env.example`):
-   - `NEXT_PUBLIC_API_URL` → `https://api.ajel.sa`
+   - `NEXT_PUBLIC_API_URL` → `https://api.ajelsa.net`
    - `AUTH_SECRET` → same value as Railway's
    - `DATABASE_URL` → Railway Postgres **PUBLIC** URL (Vercel can't
      reach the Railway private network — use the public endpoint with
@@ -106,19 +106,19 @@ In the Vercel dashboard:
    - `REVALIDATE_SECRET` → fresh 32+ chars; api-server will use this to
      trigger ISR after publishing (later batch)
    - `NODE_ENV` → `production`
-7. Add custom domain `ajel.sa` (and `www.ajel.sa` redirecting to apex).
+7. Add custom domain `ajelsa.net` (and `www.ajelsa.net` redirecting to apex).
 
 ## 4. DNS
 
 In your DNS provider:
 
 ```
-ajel.sa          A     <vercel-anycast-ip>     (or follow Vercel's CNAME)
-www.ajel.sa      CNAME cname.vercel-dns.com
-api.ajel.sa      CNAME <railway-domain>        (Railway shows it on the service)
+ajelsa.net          A     <vercel-anycast-ip>     (or follow Vercel's CNAME)
+www.ajelsa.net      CNAME cname.vercel-dns.com
+api.ajelsa.net      CNAME <railway-domain>        (Railway shows it on the service)
 ```
 
-Wait until both `ajel.sa` and `api.ajel.sa` resolve. Each provider
+Wait until both `ajelsa.net` and `api.ajelsa.net` resolve. Each provider
 issues its own cert via Let's Encrypt; usually < 5 minutes.
 
 ## 5. Smoke-test the wired-up stack
@@ -134,10 +134,10 @@ TEST_EMAIL='admin@example.com' TEST_PASSWORD='...' \
 
 Then from a browser:
 
-1. `https://ajel.sa/login` — submit your credentials.
+1. `https://ajelsa.net/login` — submit your credentials.
 2. After redirect to `/admin`, open devtools → Network → request to
-   `https://api.ajel.sa/api/auth/me` should succeed (200) and the
-   response should set/refresh `ajel_session` with `Domain=.ajel.sa`.
+   `https://api.ajelsa.net/api/auth/me` should succeed (200) and the
+   response should set/refresh `ajel_session` with `Domain=.ajelsa.net`.
 3. Visit `/admin/roles` (still owned by ajelsa today — page rendered
    server-side from the same DB) and confirm role data loads.
 
@@ -157,7 +157,7 @@ be re-restored from the saved `/tmp/ajelsa-migration-*.dump`.
 deploys; revert via the Railway dashboard. `healthcheckPath` ensures
 broken bundles never receive traffic — they fail the rollout instead.
 
-**Need to fully revert Vercel cutover:** point `ajel.sa` DNS back to
+**Need to fully revert Vercel cutover:** point `ajelsa.net` DNS back to
 the Replit deployment. The Replit container still has the legacy
 "both surfaces in one box" wiring as long as `.replit` is unchanged.
 

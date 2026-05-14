@@ -9,8 +9,8 @@ const config: NextConfig = {
       { protocol: "https", hostname: "*.r2.dev" },
       { protocol: "https", hostname: "*.r2.cloudflarestorage.com" },
       { protocol: "https", hostname: "res.cloudinary.com" },
-      { protocol: "https", hostname: "ajel.sa" },
-      { protocol: "https", hostname: "cdn.ajel.sa" },
+      { protocol: "https", hostname: "ajelsa.net" },
+      { protocol: "https", hostname: "cdn.ajelsa.net" },
       ...(replitDomain
         ? [{ protocol: "https" as const, hostname: replitDomain }]
         : []),

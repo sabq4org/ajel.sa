@@ -1,10 +1,10 @@
 /**
  * Browser-side API client — calls api-server on its own origin
- * (e.g. https://api.ajel.sa) when `NEXT_PUBLIC_API_URL` is set, and
+ * (e.g. https://api.ajelsa.net) when `NEXT_PUBLIC_API_URL` is set, and
  * falls back to same-origin relative paths during the transition.
  *
  * Always sends `credentials: "include"` so the cross-subdomain session
- * cookie (`Domain=.ajel.sa`) is attached on every request.
+ * cookie (`Domain=.ajelsa.net`) is attached on every request.
  *
  * Use this for any CLIENT component that needs to call a route that has
  * been ported to api-server (auth, permissions, roles, users so far).
@@ -22,7 +22,7 @@
  * Trimmed API base URL (no trailing slash, no `/api` suffix — that's
  * appended by `apiFetch`).
  *
- * In production: `https://api.ajel.sa`
+ * In production: `https://api.ajelsa.net`
  * In dev pointing at local api-server: `http://localhost:8080`
  * Unset: empty string → same-origin relative request (Replit fallback).
  */

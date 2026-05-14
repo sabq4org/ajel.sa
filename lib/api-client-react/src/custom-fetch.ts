@@ -34,7 +34,7 @@ export function setBaseUrl(url: string | null): void {
  * Set the default `credentials` mode for every request.
  *
  * Use `"include"` when the frontend and API live on different origins
- * (e.g. ajel.sa ↔ api.ajel.sa) so the browser will send the session
+ * (e.g. ajelsa.net ↔ api.ajelsa.net) so the browser will send the session
  * cookie cross-origin. Pair with a server-side CORS config that returns
  * `Access-Control-Allow-Credentials: true` and a specific `Allow-Origin`
  * (not `*`).

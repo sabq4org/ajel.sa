@@ -9,8 +9,8 @@
 # Set these env vars in Railway:
 #   DATABASE_URL        Railway Postgres connection string
 #   AUTH_SECRET         shared secret with ajelsa (Vercel)
-#   FRONTEND_ORIGIN     https://ajel.sa  (drives CORS allow-origin)
-#   COOKIE_DOMAIN       .ajel.sa         (so ajel.sa + api.ajel.sa share the session cookie)
+#   FRONTEND_ORIGIN     https://ajelsa.net  (drives CORS allow-origin)
+#   COOKIE_DOMAIN       .ajelsa.net         (so ajelsa.net + api.ajelsa.net share the session cookie)
 #   NODE_ENV            production
 #   PORT                Railway sets this automatically; api-server reads it.
 

@@ -28,14 +28,14 @@ const USERS = [
     role: "editor_in_chief" as const,
   },
   {
-    email: "ahmed@ajel.sa",
+    email: "ahmed@ajelsa.net",
     password: "Ajel@2026",
     fullName: "أحمد العمري",
     bio: "محرر أول · محليات",
     role: "editor" as const,
   },
   {
-    email: "reem@ajel.sa",
+    email: "reem@ajelsa.net",
     password: "Ajel@2026",
     fullName: "ريم الشهري",
     bio: "محللة اقتصادية",
@@ -86,8 +86,8 @@ async function main() {
   const localCat = insertedCats.find((c) => c.slug === "local")!;
   const econCat = insertedCats.find((c) => c.slug === "business")!;
   const techCat = insertedCats.find((c) => c.slug === "tech")!;
-  const ahmed = insertedUsers.find((u) => u.email === "ahmed@ajel.sa")!;
-  const reem = insertedUsers.find((u) => u.email === "reem@ajel.sa")!;
+  const ahmed = insertedUsers.find((u) => u.email === "ahmed@ajelsa.net")!;
+  const reem = insertedUsers.find((u) => u.email === "reem@ajelsa.net")!;
 
   const sampleArticles = [
     {

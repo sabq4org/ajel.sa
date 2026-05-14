@@ -52,7 +52,7 @@ export function SeoSection({
 
   const serpTitle = metaTitle || articleTitle || "عنوان المقال";
   const serpDesc = metaDescription || "وصف المقال سيظهر هنا في نتائج البحث على Google...";
-  const serpUrl = "ajel.sa › أخبار › ...";
+  const serpUrl = "ajelsa.net › أخبار › ...";
 
   return (
     <div className="card">
