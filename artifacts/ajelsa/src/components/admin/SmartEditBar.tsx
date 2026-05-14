@@ -1,8 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { Sparkles, RefreshCw, AlignLeft, ChevronDown, ChevronUp, Loader2, Check, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Sparkles,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Check,
+  X,
+} from "lucide-react";
 import { toast } from "./Toast";
+
+type Mode = "smart" | "full_edit";
 
 interface SmartEditResult {
   main_title: string;
@@ -13,8 +23,9 @@ interface SmartEditResult {
   suggested_category: string;
 }
 
-interface AlternativeTitles {
-  titles: string[];
+interface FullEditResult extends SmartEditResult {
+  edited_content: string;
+  improvements_summary: string[];
 }
 
 interface Props {
@@ -28,19 +39,30 @@ interface Props {
     metaKeywords?: string;
     contentHtml?: string;
   }) => void;
-  onTitlesGenerated?: (titles: string[]) => void;
 }
 
-export function SmartEditBar({ contentHtml, onApply, onTitlesGenerated }: Props) {
-  const [loading, setLoading] = useState<"smart" | "rewrite" | "titles" | null>(null);
+const IMPROVEMENTS_AUTO_HIDE_MS = 8000;
+
+export function SmartEditBar({ contentHtml, onApply }: Props) {
+  const [loading, setLoading] = useState<Mode | null>(null);
   const [result, setResult] = useState<SmartEditResult | null>(null);
   const [improvements, setImprovements] = useState<string[]>([]);
-  const [altTitles, setAltTitles] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
 
-  const plainText = contentHtml.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const plainText = contentHtml
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  async function call(mode: "smart" | "rewrite" | "titles") {
+  // Auto-hide the improvements banner so it doesn't linger after the user
+  // has moved on. Keeping it 8s gives time to read 3-5 bullet points.
+  useEffect(() => {
+    if (improvements.length === 0) return;
+    const t = setTimeout(() => setImprovements([]), IMPROVEMENTS_AUTO_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [improvements]);
+
+  async function call(mode: Mode) {
     if (plainText.length < 30) {
       toast.error("أضف نص الخبر أولاً قبل استخدام التحرير الذكي");
       return;
@@ -59,14 +81,21 @@ export function SmartEditBar({ contentHtml, onApply, onTitlesGenerated }: Props)
         setResult(data as SmartEditResult);
         setExpanded(true);
         toast.success("تم التوليد — راجع النتائج أدناه");
-      } else if (mode === "rewrite") {
-        onApply({ contentHtml: data.enhanced_content });
-        setImprovements(data.improvements_summary ?? []);
-        toast.success("تم إعادة تحرير النص");
-      } else if (mode === "titles") {
-        setAltTitles(data.titles ?? []);
-        onTitlesGenerated?.(data.titles ?? []);
-        toast.success("تم توليد 3 عناوين بديلة");
+      } else {
+        const full = data as FullEditResult;
+        onApply({
+          contentHtml: full.edited_content,
+          title: full.main_title,
+          subtitle: full.sub_title,
+          excerpt: full.smart_summary,
+          metaTitle: full.seo?.meta_title,
+          metaDescription: full.seo?.meta_description,
+          metaKeywords: (full.keywords ?? []).join("، "),
+        });
+        setImprovements(full.improvements_summary ?? []);
+        setResult(null);
+        setExpanded(false);
+        toast.success("تم التحرير الشامل ✨");
       }
     } catch (e: any) {
       toast.error(e.message ?? "حدث خطأ");
@@ -104,40 +133,32 @@ export function SmartEditBar({ contentHtml, onApply, onTitlesGenerated }: Props)
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Main: Smart Edit */}
+          {/* زر 1: توليد ذكي — يستخرج الحقول فقط بدون لمس نص الخبر */}
           <button
             onClick={() => call("smart")}
             disabled={loading !== null}
+            className="flex items-center gap-2 bg-paper border-2 border-burgundy text-burgundy px-4 py-2 rounded-xl text-[13px] font-bold hover:bg-rose-cream transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading === "smart" ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} />
+            )}
+            توليد ذكي
+          </button>
+
+          {/* زر 2: تحرير شامل — يحرر النص + كل الحقول دفعة واحدة */}
+          <button
+            onClick={() => call("full_edit")}
+            disabled={loading !== null}
             className="flex items-center gap-2 bg-burgundy text-white px-4 py-2 rounded-xl text-[13px] font-bold shadow-red hover:bg-burgundy-dark hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0"
           >
-            {loading === "smart"
-              ? <Loader2 size={14} className="animate-spin" />
-              : <Sparkles size={14} />}
-            تحرير ذكي شامل
-          </button>
-
-          {/* Rewrite */}
-          <button
-            onClick={() => call("rewrite")}
-            disabled={loading !== null}
-            className="flex items-center gap-2 bg-paper border border-line text-ink-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold hover:bg-bg-2 transition-all disabled:opacity-60"
-          >
-            {loading === "rewrite"
-              ? <Loader2 size={14} className="animate-spin" />
-              : <RefreshCw size={14} />}
-            إعادة تحرير النص
-          </button>
-
-          {/* Alt Titles */}
-          <button
-            onClick={() => call("titles")}
-            disabled={loading !== null}
-            className="flex items-center gap-2 bg-paper border border-line text-ink-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold hover:bg-bg-2 transition-all disabled:opacity-60"
-          >
-            {loading === "titles"
-              ? <Loader2 size={14} className="animate-spin" />
-              : <AlignLeft size={14} />}
-            عناوين بديلة
+            {loading === "full_edit" ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
+            تحرير شامل
           </button>
         </div>
       </div>
@@ -165,7 +186,7 @@ export function SmartEditBar({ contentHtml, onApply, onTitlesGenerated }: Props)
                 <Check size={12} /> تطبيق الكل
               </button>
               <button
-                onClick={() => setExpanded(e => !e)}
+                onClick={() => setExpanded((e) => !e)}
                 className="flex items-center gap-1 text-[12px] text-ink-soft hover:text-ink transition-colors"
               >
                 {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -182,25 +203,52 @@ export function SmartEditBar({ contentHtml, onApply, onTitlesGenerated }: Props)
 
           {expanded && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <ResultField label="العنوان الرئيسي" value={result.main_title}
-                onApply={() => onApply({ title: result.main_title })} />
-              <ResultField label="العنوان الفرعي" value={result.sub_title}
-                onApply={() => onApply({ subtitle: result.sub_title })} />
-              <ResultField label="الموجز" value={result.smart_summary} className="md:col-span-2"
-                onApply={() => onApply({ excerpt: result.smart_summary })} />
-              <ResultField label="SEO Title" value={result.seo.meta_title}
-                onApply={() => onApply({ metaTitle: result.seo.meta_title })} />
-              <ResultField label="SEO Description" value={result.seo.meta_description}
-                onApply={() => onApply({ metaDescription: result.seo.meta_description })} />
+              <ResultField
+                label="العنوان الرئيسي"
+                value={result.main_title}
+                onApply={() => onApply({ title: result.main_title })}
+              />
+              <ResultField
+                label="العنوان الفرعي"
+                value={result.sub_title}
+                onApply={() => onApply({ subtitle: result.sub_title })}
+              />
+              <ResultField
+                label="الموجز"
+                value={result.smart_summary}
+                className="md:col-span-2"
+                onApply={() => onApply({ excerpt: result.smart_summary })}
+              />
+              <ResultField
+                label="SEO Title"
+                value={result.seo.meta_title}
+                onApply={() => onApply({ metaTitle: result.seo.meta_title })}
+              />
+              <ResultField
+                label="SEO Description"
+                value={result.seo.meta_description}
+                onApply={() =>
+                  onApply({ metaDescription: result.seo.meta_description })
+                }
+              />
               <div className="md:col-span-2">
-                <div className="text-[11px] font-semibold text-ink-soft mb-1.5">الكلمات المفتاحية</div>
+                <div className="text-[11px] font-semibold text-ink-soft mb-1.5">
+                  الكلمات المفتاحية
+                </div>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {result.keywords.map((k, i) => (
-                    <span key={i} className="text-[12px] bg-bg-2 px-2.5 py-1 rounded-full text-ink">{k}</span>
+                    <span
+                      key={i}
+                      className="text-[12px] bg-bg-2 px-2.5 py-1 rounded-full text-ink"
+                    >
+                      {k}
+                    </span>
                   ))}
                 </div>
                 <button
-                  onClick={() => onApply({ metaKeywords: result.keywords.join("، ") })}
+                  onClick={() =>
+                    onApply({ metaKeywords: result.keywords.join("، ") })
+                  }
                   className="text-[11px] text-burgundy font-semibold hover:underline"
                 >
                   تطبيق الكلمات المفتاحية
@@ -208,7 +256,9 @@ export function SmartEditBar({ contentHtml, onApply, onTitlesGenerated }: Props)
               </div>
               {result.suggested_category && (
                 <div>
-                  <div className="text-[11px] font-semibold text-ink-soft mb-1">التصنيف المقترح</div>
+                  <div className="text-[11px] font-semibold text-ink-soft mb-1">
+                    التصنيف المقترح
+                  </div>
                   <span className="inline-block bg-rose-cream text-burgundy text-[12px] font-bold px-3 py-1 rounded-full">
                     {result.suggested_category}
                   </span>
@@ -219,45 +269,27 @@ export function SmartEditBar({ contentHtml, onApply, onTitlesGenerated }: Props)
         </div>
       )}
 
-      {/* Alternative Titles */}
-      {altTitles.length > 0 && (
-        <div className="mt-4 border-t border-line pt-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[13px] font-bold text-ink">3 عناوين بديلة</span>
-            <button onClick={() => setAltTitles([])} className="text-ink-faint hover:text-ink-soft">
-              <X size={14} />
-            </button>
-          </div>
-          <div className="flex flex-col gap-2">
-            {altTitles.map((t, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 p-3 bg-bg-2 rounded-xl group hover:bg-line-soft transition-colors">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-[11px] font-extrabold text-burgundy/60 w-4 flex-shrink-0">{i + 1}</span>
-                  <span className="text-[13px] text-ink leading-snug">{t}</span>
-                </div>
-                <button
-                  onClick={() => { onApply({ title: t }); toast.success("تم تطبيق العنوان"); }}
-                  className="flex-shrink-0 text-[11px] font-bold text-burgundy bg-rose-cream px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-burgundy hover:text-white"
-                >
-                  تطبيق
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Improvements list */}
+      {/* Improvements list (auto-hides after 8s) */}
       {improvements.length > 0 && (
         <div className="mt-3 border-t border-line pt-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[12px] font-bold text-emerald-700">التحسينات المُطبَّقة</span>
-            <button onClick={() => setImprovements([])}><X size={12} className="text-ink-faint" /></button>
+            <span className="text-[12px] font-bold text-emerald-700">
+              التحسينات المُطبَّقة
+            </span>
+            <button onClick={() => setImprovements([])}>
+              <X size={12} className="text-ink-faint" />
+            </button>
           </div>
           <ul className="flex flex-col gap-1">
             {improvements.map((imp, i) => (
-              <li key={i} className="flex items-start gap-2 text-[12px] text-ink-soft">
-                <Check size={11} className="text-emerald-600 mt-0.5 flex-shrink-0" />
+              <li
+                key={i}
+                className="flex items-start gap-2 text-[12px] text-ink-soft"
+              >
+                <Check
+                  size={11}
+                  className="text-emerald-600 mt-0.5 flex-shrink-0"
+                />
                 {imp}
               </li>
             ))}
@@ -268,19 +300,31 @@ export function SmartEditBar({ contentHtml, onApply, onTitlesGenerated }: Props)
   );
 }
 
-// ── Small helper ──────────────────────────────────────────────────────────
-function ResultField({ label, value, onApply, className = "" }: {
-  label: string; value: string; onApply: () => void; className?: string;
+function ResultField({
+  label,
+  value,
+  onApply,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  onApply: () => void;
+  className?: string;
 }) {
   return (
     <div className={className}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-[11px] font-semibold text-ink-soft">{label}</span>
-        <button onClick={onApply} className="text-[10px] text-burgundy font-bold hover:underline">
+        <button
+          onClick={onApply}
+          className="text-[10px] text-burgundy font-bold hover:underline"
+        >
           تطبيق
         </button>
       </div>
-      <p className="text-[13px] text-ink bg-bg-2 px-3 py-2 rounded-lg leading-relaxed">{value}</p>
+      <p className="text-[13px] text-ink bg-bg-2 px-3 py-2 rounded-lg leading-relaxed">
+        {value}
+      </p>
     </div>
   );
 }
