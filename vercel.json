@@ -3,6 +3,5 @@
   "buildCommand": "pnpm --filter @workspace/ajelsa run build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "artifacts/ajelsa/.next",
-  "framework": "nextjs",
-  "ignoreCommand": "pnpm dlx turbo-ignore @workspace/ajelsa || true"
+  "framework": "nextjs"
 }
