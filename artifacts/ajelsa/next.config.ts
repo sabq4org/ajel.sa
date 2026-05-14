@@ -19,6 +19,10 @@ const config: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],
+    // Wraps router navigations in document.startViewTransition() so old/new
+    // routes cross-fade via the rules in globals.css instead of hard-cutting.
+    // Native API (Chrome 111+, Safari 18+); Next falls back to instant nav.
+    viewTransition: true,
   },
   poweredByHeader: false,
   compress: true,

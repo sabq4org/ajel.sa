@@ -25,7 +25,12 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html
+      lang="ar"
+      dir="rtl"
+      suppressHydrationWarning
+      style={{ viewTransitionName: "root" }}
+    >
       <head>
         {/* Anti-flash: resolve theme before React hydrates so the page
             paints with the right background on first frame. */}

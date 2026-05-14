@@ -8,19 +8,22 @@
     --paper: #ffffff;
     --bg-2: #f5efe9;
     --ink: #1f1a1c;
-    --ink-soft: #7a6d72;
     --ink-2: #4a3f43;
-    --ink-faint: #b3a8ac;
+    /* ink-soft: WCAG AA — 6.86:1 on --bg (was #7a6d72 / 4.63:1, too tight) */
+    --ink-soft: #605358;
+    /* ink-faint: WCAG AA — 4.63:1 on --bg (was #b3a8ac / 2.16:1, failed) */
+    --ink-faint: #7a6d72;
     --line: #ede4dd;
     --line-soft: #f3ebe3;
     --burgundy: #8c1d2b;
     --rose-cream: #fce8e9;
     --card-shadow: 0 2px 4px rgba(31,26,28,0.06), 0 12px 32px rgba(31,26,28,0.08);
 
-    /* Chart colors — flip in .dark */
+    /* Chart colors — flip in .dark.
+       Axis labels are text-shaped, so we hold them to the AA 4.5:1 bar. */
     --chart-grid: #ede4dd;
-    --chart-axis: #b3a8ac;
-    --chart-axis-2: #7a6d72;
+    --chart-axis: #7a6d72;
+    --chart-axis-2: #605358;
     --chart-line: #8c1d2b;
     --chart-line-prev: #d8a5aa;
     --chart-area-from: rgba(140, 29, 43, 0.25);
@@ -44,8 +47,9 @@
     --bg-2: #1f1f23;         /* subtle elevated surface (above paper) */
     --ink: #FAFAFA;          /* primary text — never pure white */
     --ink-2: #D4D4D8;        /* secondary body */
-    --ink-soft: #A1A1AA;     /* muted meta */
-    --ink-faint: #71717A;    /* faint helpers, separators on text */
+    --ink-soft: #A1A1AA;     /* muted meta — 7.47:1 on bg, AAA */
+    /* ink-faint: WCAG AA — 5.59:1 on --bg (was #71717A / 3.96:1, just under) */
+    --ink-faint: #8A8A93;    /* faint helpers, separators on text */
     --line: rgba(255,255,255,0.10);
     --line-soft: rgba(255,255,255,0.06);
     --burgundy: #C9384A;     /* lifted brand for visibility on dark */
@@ -53,9 +57,9 @@
     --card-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.5);
     color-scheme: dark;
 
-    /* Chart colors — dark variants */
+    /* Chart colors — dark variants. Axis labels held to AA 4.5:1. */
     --chart-grid: rgba(255, 255, 255, 0.08);
-    --chart-axis: #71717A;
+    --chart-axis: #8A8A93;
     --chart-axis-2: #A1A1AA;
     --chart-line: #f87171;
     --chart-line-prev: #b76570;
@@ -127,6 +131,27 @@
   }
   .dark :focus-visible {
     box-shadow: 0 0 0 2px #0f0f12, 0 0 0 4px #C9384A;
+  }
+
+  /* Native View Transitions (Chrome 111+/Safari 18+). The root element
+     carries view-transition-name: root (set in layout.tsx); these keyframes
+     replace the default 250ms instant cut with a snappy cross-fade. The
+     reduced-motion query removes the animation entirely. */
+  @media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root) {
+      animation: ajel-fade-out 150ms ease-out;
+    }
+    ::view-transition-new(root) {
+      animation: ajel-fade-in 200ms ease-in;
+    }
+  }
+  @keyframes ajel-fade-out {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+  }
+  @keyframes ajel-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
 }
 

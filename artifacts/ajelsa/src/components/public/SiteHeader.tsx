@@ -36,9 +36,9 @@ export function SiteHeader({
         <div className="max-w-[1320px] mx-auto px-8 flex justify-between items-center">
           <HeaderDateBar />
           <div className="flex gap-5 items-center">
-            <Link href="/notifications" className="hover:text-white dark:hover:text-zinc-100 transition-colors">الإشعارات</Link>
-            <Link href="/newsletter" className="hover:text-white dark:hover:text-zinc-100 transition-colors">النشرة</Link>
-            <Link href="/login" className="hover:text-white dark:hover:text-zinc-100 transition-colors font-semibold">تسجيل الدخول</Link>
+            <Link href="/notifications" prefetch className="hover:text-white dark:hover:text-zinc-100 transition-[color,opacity] duration-150 active:opacity-70">الإشعارات</Link>
+            <Link href="/newsletter" prefetch className="hover:text-white dark:hover:text-zinc-100 transition-[color,opacity] duration-150 active:opacity-70">النشرة</Link>
+            <Link href="/login" prefetch className="hover:text-white dark:hover:text-zinc-100 transition-[color,opacity] duration-150 active:opacity-70 font-semibold">تسجيل الدخول</Link>
           </div>
         </div>
       </div>
@@ -88,7 +88,8 @@ export function SiteHeader({
                 <li key={item.href} className="relative group">
                   <Link
                     href={item.href}
-                    className="block py-4 px-4 text-[14px] font-bold text-ink hover:text-burgundy dark:hover:text-rose-300 transition-colors"
+                    prefetch
+                    className="block py-4 px-4 text-[14px] font-bold text-ink hover:text-burgundy dark:hover:text-rose-300 transition-[color,opacity] duration-150 active:opacity-70"
                   >
                     {item.label}
                   </Link>
